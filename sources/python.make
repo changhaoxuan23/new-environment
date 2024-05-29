@@ -51,7 +51,7 @@ make DESTDIR="${stow_directory}/${package}.new" install
 # install to final place
 for python_package_script in "${scripts_directory}/python-"*;do
   "${python_package_script}" uninstall
-fi
+done
 remove-old-package
 mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
