@@ -7,31 +7,31 @@
 # this will work only if you are using bash
 
 # setup PATH.
-export PATH="__{{export_directory}}__bin:${PATH}"
+export PATH="__{{export_directory}}__/bin:${PATH}"
 
 # make man pages available
 #  in case the original value of $MANPATH is an empty string, there will be a tailing colon in the final value
 #  therefore include default man paths
-export MANPATH="__{{export_directory}}__share/man:${MANPATH}"
+export MANPATH="__{{export_directory}}__/share/man:${MANPATH}"
 
 # setup C and C++ compiler
 export CC=clang
 export CXX=clang++
 
 # provide access to header files
-export CFLAGS="-I__{{export_directory}}__include ${CFLAGS}"
-export CXXFLAGS="-I__{{export_directory}}__include ${CXXFLAGS}"
-export CPATH="__{{export_directory}}__include:${CPATH}"
+export CFLAGS="-I__{{export_directory}}__/include ${CFLAGS}"
+export CXXFLAGS="-I__{{export_directory}}__/include ${CXXFLAGS}"
+export CPATH="__{{export_directory}}__/include:${CPATH}"
 
 # provide access to libraries
 export LDFLAGS="-fuse-ld=lld ${LDFLAGS}"
-export LIBRARY_PATH="__{{export_directory}}__lib:${LIBRARY_PATH}"
+export LIBRARY_PATH="__{{export_directory}}__/lib:${LIBRARY_PATH}"
 
 # add search path for pkg-config
-export PKG_CONFIG_PATH="__{{export_directory}}__lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:${PKG_CONFIG_PATH}"
+export PKG_CONFIG_PATH="__{{export_directory}}__/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:${PKG_CONFIG_PATH}"
 
 # add runtime search directory
-_new_LD_LIBRARY_PATH='__{{export_directory}}__lib/x86_64-unknown-linux-gnu:__{{export_directory}}__lib'
+_new_LD_LIBRARY_PATH='__{{export_directory}}__/lib/x86_64-unknown-linux-gnu:__{{export_directory}}__/lib'
 if [ -z "${LD_LIBRARY_PATH}" ];then
   export LD_LIBRARY_PATH="${_new_LD_LIBRARY_PATH}"
 else
@@ -41,10 +41,10 @@ fi
 
 # if this script is invoked directly, append a source command to .bashrc of the user
 #  when a script is sourced, the value of $0 is not changed therefore will not point to this script
-if [ "$(realpath -- "$0")" = __{{export_directory}}__README ];then
+if [ "$(realpath -- "$0")" = '__{{export_directory}}__/README' ];then
   # add empty line so that we will not break things even if there is no empty line at the end of .bashrc
   echo >> "${HOME}/.bashrc"
-  echo 'source __{{export_directory}}__README' >> "${HOME}/.bashrc"
+  echo 'source __{{export_directory}}__/README' >> "${HOME}/.bashrc"
   printf -- '\x1b[1;32mYou are ready to go now! Welcome!\x1b[0m\n'
   printf -- '\x1b[1;32m Though you still need to restart your shell...\x1b[0m\n'
 fi
