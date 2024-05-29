@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# prepare execution environment for scripts that builds softwares
+# this file shall be sourced, which requires:
+#  function cleanup that cleans when the script terminates
+#  variable scripts_directory that points to the directory holding the script
+# and which sets:
+#  variable stow_directory that points to the directory holding individuals softwares
+#  variable target_directory that points to the nenv directory
+
+# make the execution terminate whenever an error is triggered
+set -e
+
+# ensure cleanup
+trap cleanup EXIT
+
+# make path absolute
+scripts_directory="$(realpath --canonicalize-existing "${scripts_directory}")"
+
+# setup stow_directory
+stow_directory="$(realpath --canonicalize-existing "${scripts_directory}/..")"
+
+# hardcoded target directory
+target_directory="__{{export_directory}}__"
+
+# retry remove until we success, use this to replace rm -rf
+#  we need this since it seems like that NFS may create some internal file entry which fails rm -rf calls
+stable-remove-directory(){
+  while ! rm -rf "$@";do
+    sleep 2
+  done
+}
+
+is-python-package(){
+  if [ "${package::7}" = 'python-' ];then return 0;fi
+  return 1
+}
+
+# check bypass configuration before actual version check
+meta-version-check(){
+  printf -- 'building %s: %s\n' "${package}" "${new_version}"
+  if [ -n "${SKIP_VERSION_CHECK}" ];then return 0;fi
+  if [ ! -f "${stow_directory}/${package}.version" ];then return 0;fi
+  return 1
+}
+
+# format semantic version code into integers with semantical order preserved
+format-semantic-version(){
+  local splited_code
+  mapfile -d '.' -t splited_code < <(echo -n "$1")
+  printf -- '%d' "$((splited_code[0]*1000000+splited_code[1]*1000+splited_code[2]))"
+}
+
+# build git version
+#  current working directory should be in the git work tree
+build-git-version(){
+  new_version="$( set -o pipefail
+    git describe --long --abbrev=7 --tags 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' ||
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+  )"
+}
+
+# check semantic version code x.y.z, return 0 if to be proceeded
+#  uses: new_version and package
+#  old version is automatically read from version file if exists
+check-semantic-version(){
+  if meta-version-check;then return 0;fi
+  local old_version
+  local formatted_new_version
+  old_version="$(cat "${stow_directory}/${package}.version")"
+  old_version="$(format-semantic-version "${old_version}")"
+  formatted_new_version="$(format-semantic-version "${new_version}")"
+  if [ "${formatted_new_version}" -le "${old_version}" ];then
+    printf -- '%s: already up to date\n' "${package}"
+    return 1
+  fi
+  return 0
+}
+
+# check git version, return 0 if to be proceeded
+#  uses: new_version and package
+check-git-version(){
+  if meta-version-check;then return 0;fi
+  local old_version
+  old_version="$(cat "${stow_directory}/${package}.version")"
+  if [ "${new_version}" = "${old_version}" ];then
+    printf -- '%s: already up to date\n' "${package}"
+    return 1
+  fi
+  return 0
+}
+
+# remove old package if exists
+#  uses: variable package, the name of package
+remove-old-package(){
+  if [ -f "${stow_directory}/${package}.version" ];then
+    stow --dir="${stow_directory}" --target="${target_directory}" --delete "${package}"
+    if is-python-package;then
+      stow --dir="${stow_directory}" --target="${stow_directory}/python" --delete "${package}"
+    fi
+    stable-remove-directory "${stow_directory}/${package}"
+    rm -f "${stow_directory}/${package}.version"
+  fi
+}
+
+# install new package to publicly visible destination
+#  uses: variable package, the name of package
+#        variable version, the new version string to save
+install-new-package(){
+  stow --dir="${stow_directory}" --target="${target_directory}" --stow "${package}"
+  if is-python-package;then
+    stow --dir="${stow_directory}" --target="${stow_directory}/python" --stow "${package}"
+  fi
+  printf '%s: installed %s\n' "${package}" "${version}"
+  printf '%s' "${version}" > "${stow_directory}/${package}.version"
+}
+
+# check and uninstall if required
+check-uninstall(){
+  if [ $# -lt 1 ];then return;fi
+  if [ "$1" = 'uninstall' ];then
+    remove-old-package
+    exit
+  fi
+}
