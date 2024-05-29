@@ -22,8 +22,11 @@ new_version="$(echo -n "${source_directory}" | cut -d '-' -f 2)"
 if ! check-semantic-version;then exit;fi
 mv "${source_directory}" "${stow_directory}/${package}.build"
 
-./configure --prefix="${stow_directory}/${package}" \
-            --infodir="${stow_directory}/${package}/share/info/${package}"
+cd "${stow_directory}/${package}.build"
+mkdir build
+cd build
+../configure --prefix="${stow_directory}/${package}" \
+             --infodir="${stow_directory}/${package}/share/info/${package}"
 make -j
 make DESTDIR="${stow_directory}/${package}.new" install
 
