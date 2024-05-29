@@ -27,12 +27,10 @@ mkdir build
 cd build
 ../configure --prefix="${stow_directory}/${package}" \
              --infodir="${stow_directory}/${package}/share/info/${package}"
-make -j
+make
 make DESTDIR="${stow_directory}/${package}.new" install
 
-if [ -f "${stow_directory}/${package}.version" ];then
-  remove-old-package
-fi
+remove-old-package
 mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
 "${stow_directory}/${package}/bin/stow" --dir="${stow_directory}" \
