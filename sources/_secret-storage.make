@@ -1,13 +1,4 @@
 #!/bin/bash
-
-scripts_directory="$(dirname "$0")"
-
-cleanup(){
-  stable-remove-directory "${stow_directory}/${package}.new"
-}
-
-source "${scripts_directory}/common/prepare-execution-environment"
-
 _package="_secret-storage"
 if [ "$(basename "$0")" = 'secret-storage.make' ];then
   package="secret-storage"
@@ -17,17 +8,19 @@ else
   exit 1
 fi
 
-check-uninstall "$@"
+scripts_directory="$(dirname "$0")"
+
+cleanup(){
+  stable-remove-directory "${stow_directory}/${package}.new"
+}
+
+source "${scripts_directory}/common/prepare-execution-environment"
 
 # prepare source
-if [ ! -d "${stow_directory}/${_package}.build" ];then
-  git clone 'https://github.com/changhaoxuan23/secret-storage.git' "${stow_directory}/${_package}.build"
-fi
-cd "${stow_directory}/${_package}.build"
-git pull --rebase
-new_version="$(git rev-parse HEAD)"
+prepare-git-source 'https://github.com/changhaoxuan23/secret-storage.git'
 
 # version check
+build-git-version
 if ! check-git-version;then exit;fi
 
 # build
@@ -45,7 +38,5 @@ elif [ "${package}" = 'python-secret-storage' ];then
 fi
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

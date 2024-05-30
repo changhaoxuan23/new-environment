@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="gettext"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -9,8 +10,6 @@ cleanup(){
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
-
-package="gettext"
 
 # prepare source
 url="$(curl --silent --location --compressed --fail 'https://www.gnu.org/software/gettext/' | grep -Po 'https://ftp.gnu.org/pub/gnu/gettext/gettext-.+?\.gz' | head -n 1)"
@@ -40,7 +39,5 @@ make -j
 make DESTDIR="${stow_directory}/${package}.new" install
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

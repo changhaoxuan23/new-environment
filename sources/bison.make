@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="bison"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -11,8 +12,6 @@ cleanup(){
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
-
-package="bison"
 
 # prepare source
 source_tar="$(curl --fail --silent 'https://ftp.gnu.org/gnu/bison/?C=M;O=D' | grep -Po 'href="bison[^"]+?.xz"' | sed -E 's|href="(.+)"|\1|' | head -n 1)"
@@ -37,7 +36,5 @@ make -j
 make DESTDIR="${stow_directory}/${package}.new" install
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

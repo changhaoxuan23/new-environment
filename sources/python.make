@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="python"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -8,8 +9,6 @@ cleanup(){
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
-
-package="python"
 
 # fetch url of latest stable
 source_url="$(curl --fail --location --compressed --silent 'https://www.python.org/box/supernav-python-downloads/' | grep -Po 'https://.+?.tar.xz')"
@@ -52,7 +51,8 @@ make DESTDIR="${stow_directory}/${package}.new" install
 for python_package_script in "${scripts_directory}/python-"*;do
   "${python_package_script}" uninstall
 done
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install
+for python_package_script in "${scripts_directory}/python-"*;do
+  "${python_package_script}"
+done

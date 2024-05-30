@@ -14,6 +14,7 @@ list=(
   onetbb
   tcl
   sqlite
+  bison
   util-linux
   python
   pybind11
@@ -25,12 +26,15 @@ list=(
 )
 for item in "${list[@]}";do
   if [ $# -eq 1 ] && [ "${item}" != "$1" ];then
+    printf -- '\x1b[1;34mSkipping %s...\x1b[0m\n' "${item}"
     continue
   else
     shift
   fi
+  printf -- '\x1b[1;34mBuilding %s...\x1b[0m\n' "${item}"
   if ! "${scripts_directory}/../${item}.make";then
-    printf -- '\x1b[1;31mError: at %s\x1b[0m\n' "${item}"
+    printf -- '\x1b[1;31mError at %s, look at output above\x1b[0m\n' "${item}"
     exit
   fi
+  printf -- '\x1b[1;34mDone with %s\x1b[0m\n' "${item}"
 done

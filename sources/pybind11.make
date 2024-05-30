@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="pybind11"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -8,17 +9,11 @@ cleanup(){
 
 source "${scripts_directory}/common/prepare-execution-environment"
 
-package="pybind11"
-
 # prepare source
-if [ ! -d "${stow_directory}/${package}.build" ];then
-  git clone 'https://github.com/pybind/pybind11.git' "${stow_directory}/${package}.build"
-fi
-cd "${stow_directory}/${package}.build"
-git pull --rebase
-new_version="$(git rev-parse HEAD)"
+prepare-git-source 'https://github.com/pybind/pybind11.git'
 
 # version check
+build-git-version
 if ! check-git-version;then exit;fi
 
 # build
@@ -33,10 +28,8 @@ cmake -S . -B build -G Ninja \
 cmake --build build
 
 # install to temporary directory
-DESTDIR="${stow_directory}/${package}.new" ninja -C build install
+DESTDIR="${stow_directory}/${package}.new" cmake --install build --strip
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

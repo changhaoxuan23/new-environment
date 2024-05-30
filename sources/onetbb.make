@@ -1,34 +1,23 @@
 #!/bin/bash
 
+package="onetbb"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
-  rm -rf "${stow_directory}/${package}.new"
+  stable-remove-directory "${stow_directory}/${package}.new"
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
 
-package="onetbb"
-
 # prepare source
-if [ ! -d "${stow_directory}/${package}.build" ];then
-  git clone 'https://github.com/oneapi-src/oneTBB.git' "${stow_directory}/${package}.build"
-fi
-cd "${stow_directory}/${package}.build"
-git pull --rebase
-new_version="$(git rev-parse HEAD)"
+prepare-git-source 'https://github.com/oneapi-src/oneTBB.git'
 
 # version check
-if [ -z "${SKIP_VERSION_CHECK}" ] && [ -f "${stow_directory}/${package}.version" ];then
-  old_version="$(cat "${stow_directory}/${package}.version")"
-  if [ "${new_version}" = "${old_version}" ];then
-    printf -- '%s: already up to date\n' "${package}"
-    exit
-  fi
-fi
+build-git-version
+if ! check-git-version;then exit;fi
 
 # build
-rm -rf build
+stable-remove-directory build
 CC=clang CXX=clang++ LDFLAGS="-Wl,--undefined-version ${LDFLAGS}" \
 cmake -S . \
       -B build \
@@ -39,10 +28,8 @@ cmake -S . \
 cmake --build build
 
 # install to temporary directory
-DESTDIR="${stow_directory}/${package}.new" ninja -C build install
+DESTDIR="${stow_directory}/${package}.new" cmake --install build --strip
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

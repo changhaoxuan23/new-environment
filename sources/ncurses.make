@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="ncurses"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -8,8 +9,6 @@ cleanup(){
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
-
-package="ncurses"
 
 # get source
 cd "${stow_directory}"
@@ -62,7 +61,5 @@ make -j
 make DESTDIR="${stow_directory}/${package}.new" install
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

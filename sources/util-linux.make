@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="util-linux"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -8,17 +9,11 @@ cleanup(){
 
 source "${scripts_directory}/common/prepare-execution-environment"
 
-package="util-linux"
-
 # prepare source
-if [ ! -d "${stow_directory}/${package}.build" ];then
-  git clone 'https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git' "${stow_directory}/${package}.build"
-fi
-cd "${stow_directory}/${package}.build"
-git pull --rebase
-new_version="$(git rev-parse HEAD)"
+prepare-git-source 'https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git'
 
 # version check
+build-git-version
 if ! check-git-version;then exit;fi
 
 # build
@@ -35,11 +30,9 @@ cd build
              --disable-su \
              --disable-wall \
              --disable-write
-make
+make -j
 make DESTDIR="${stow_directory}/${package}.new" install-strip
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

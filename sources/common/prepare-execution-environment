@@ -1,27 +1,10 @@
 #!/bin/bash
 
-# prepare execution environment for scripts that builds softwares
-# this file shall be sourced, which requires:
-#  function cleanup that cleans when the script terminates
-#  variable scripts_directory that points to the directory holding the script
-# and which sets:
-#  variable stow_directory that points to the directory holding individuals softwares
-#  variable target_directory that points to the nenv directory
-
-# make the execution terminate whenever an error is triggered
-set -e
-
-# ensure cleanup
-trap cleanup EXIT
-
-# make path absolute
-scripts_directory="$(realpath --canonicalize-existing "${scripts_directory}")"
-
-# setup stow_directory
-stow_directory="$(realpath --canonicalize-existing "${scripts_directory}/..")"
-
-# hardcoded target directory
-target_directory="__{{export_directory}}__"
+# utility functions. most of them requires some global variable properly set, make sure you read the comment
+#  before using any of which. If you see nothing regards to variable requirement within the comment, possibly
+#  that means that at the time this script is sourced, which gives you access to these functions, the variable
+#  required by that function must be set or the execution shall terminate, so you do not need to worry
+# for the commands executed right at the moment this file is sourced, see the end of this file
 
 # retry remove until we success, use this to replace rm -rf
 #  we need this since it seems like that NFS may create some internal file entry which fails rm -rf calls
@@ -116,6 +99,7 @@ install-new-package(){
 }
 
 # check and uninstall if required
+#  if this function is called directly, you will need to pass all parameters with "$@"
 check-uninstall(){
   if [ $# -lt 1 ];then return;fi
   if [ "$1" = 'uninstall' ];then
@@ -123,3 +107,77 @@ check-uninstall(){
     exit
   fi
 }
+
+# prepare source from a git repository
+# positional argument: the url to remote repository
+#                      (optional) the branch/tag to check out
+# after this function returns, current working directory shall be in the working tree
+prepare-git-source(){
+  if [ ! -d "${stow_directory}/${package}.build" ];then
+    while ! git clone "$1""${stow_directory}/${package}.build";do sleep 1;done
+  fi
+  cd "${stow_directory}/${package}.build"
+  if [ $# -eq 2 ];then
+    git checkout "$2"
+  fi
+  while ! git pull --rebase;do sleep 1;done
+}
+
+# perform a full procedure of regular installation:
+#  remove the old package (if which exists) via remove-old-package
+#  copy newly installed copy to the final position
+#  install it via install-new-package
+# note that this requires the newly installed copy is installed by
+#  make DESTDIR="${stow_directory}/${package}.new" install
+# or something similar, otherwise you will need to install it manually
+# uses:
+#   variable version, the new version string to save
+full-install(){
+  remove-old-package
+  mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
+  install-new-package
+}
+
+
+# prepare execution environment for scripts that builds softwares
+# this file shall be sourced, which requires:
+#  function cleanup that cleans when the script terminates
+#  variable scripts_directory that points to the directory holding the script
+#  variable package, the name of package
+# and which sets:
+#  variable stow_directory that points to the directory holding individuals softwares
+#  variable target_directory that points to the nenv directory
+
+# make the execution terminate whenever an error is triggered
+set -e
+
+# ensure all variables required have been set up properly
+if ! type -t cleanup > /dev/null 2>&1;then
+  printf -- 'cleanup not set!\n'
+  exit 1
+fi
+
+if [ -z "${scripts_directory}" ];then
+  printf -- 'scripts_directory is empty!\n'
+  exit 1
+fi
+
+if [ -z "${package}" ];then
+  printf -- 'package is empty!\n'
+  exit 1
+fi
+
+# make path absolute
+scripts_directory="$(realpath --canonicalize-existing "${scripts_directory}")"
+
+# setup stow_directory
+stow_directory="$(realpath --canonicalize-existing "${scripts_directory}/..")"
+
+# hardcoded target directory
+target_directory="__{{export_directory}}__"
+
+# ensure cleanup afterwards so that we will not nuke files by mistake
+trap cleanup EXIT
+
+# do common things: check if we should do uninstall
+check-uninstall "$@"

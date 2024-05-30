@@ -1,21 +1,20 @@
 #!/bin/bash
 
+package="tcl"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
   stable-remove-directory "${stow_directory}/${package}.new"
-  # stable-remove-directory "${stow_directory}/${package}.build"
+  stable-remove-directory "${stow_directory}/${package}.build"
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
-
-package="tcl"
 
 # prepare source
 cd "${stow_directory}"
 wget --no-netrc --https-only --continue "https://sourceforge.net/projects/tcl/files/latest/download"
 unzip download
-# rm -f 'sqlite.tar.gz?r=release'
+rm -f download
 source_directory="$(ls -1 | grep ^tcl)"
 new_version="$(echo -n "${source_directory}" | tail -c +4)"
 mv "${source_directory}" "${package}.build"
@@ -39,7 +38,5 @@ make test
 make DESTDIR="${stow_directory}/${package}.new" install
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

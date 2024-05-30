@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="sqlite"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -9,14 +10,12 @@ cleanup(){
 
 source "${scripts_directory}/common/prepare-execution-environment"
 
-package="sqlite"
-
 # prepare source
 cd "${stow_directory}"
 wget --no-netrc --https-only --continue "https://www.sqlite.org/src/tarball/sqlite.tar.gz?r=release"
 mkdir "${stow_directory}/${package}.build"
 tar --extract --verbose --file 'sqlite.tar.gz?r=release' --directory="${stow_directory}/${package}.build"
-# rm -f 'sqlite.tar.gz?r=release'
+rm -f 'sqlite.tar.gz?r=release'
 cd "${stow_directory}/${package}.build/${package}"
 new_version="$(cat VERSION)"
 
@@ -61,7 +60,5 @@ make showdb showjournal showstat4 showwal sqldiff sqlite3_analyzer
 make DESTDIR="${stow_directory}/${package}.new" install
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

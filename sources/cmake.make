@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="cmake"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -8,14 +9,8 @@ cleanup(){
 
 source "${scripts_directory}/common/prepare-execution-environment"
 
-package="cmake"
-
 # prepare source
-if [ ! -d "${stow_directory}/${package}.build" ];then
-  git clone 'https://gitlab.kitware.com/cmake/cmake.git' "${stow_directory}/${package}.build"
-fi
-cd "${stow_directory}/${package}.build"
-git pull --rebase
+prepare-git-source 'https://gitlab.kitware.com/cmake/cmake.git'
 
 # version check
 build-git-version
@@ -48,10 +43,9 @@ make DESTDIR="${stow_directory}/${package}.new" install
 if [ -n "${temporary_directory}" ];then
   deactivate
   stable-remove-directory "${temporary_directory}"
+  unset temporary_directory
 fi
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

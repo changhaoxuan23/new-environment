@@ -38,6 +38,8 @@ cp --force "${source_directory}/activator" "${export_directory}/README"
 sed -E --in-place "s|__\{\{export_directory\}\}__|${export_directory}|g" \
                   "${install_directory}/scripts/common/prepare-execution-environment" \
                   "${export_directory}/README"
+sed -E --in-place "s|__\{\{install_directory\}\}__|${install_directory}|g" \
+                  "${export_directory}/README"
 chmod 555 "${export_directory}/README"
 chmod 500 "${install_directory}/scripts/"*.make \
           "${install_directory}/scripts/common/"* \

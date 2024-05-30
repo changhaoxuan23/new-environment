@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="stow"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -9,8 +10,6 @@ cleanup(){
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
-
-package="stow"
 
 cd "${stow_directory}"
 curl --fail --output stow.tar.bz2 'https://ftp.gnu.org/gnu/stow/stow-latest.tar.bz2'

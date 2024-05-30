@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="flex"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -9,8 +10,6 @@ cleanup(){
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
-
-package="flex"
 
 # prepare source
 new_version="$(curl --verbose --compressed --fail 'https://github.com/westes/flex/releases/latest' 2>&1 | grep 'location:' | sed -E 's|.+/v([^/]+)$|\1|' | tr -d '\n\r')"
@@ -39,7 +38,5 @@ make -j
 make DESTDIR="${stow_directory}/${package}.new" install
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install

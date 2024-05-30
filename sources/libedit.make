@@ -1,5 +1,6 @@
 #!/bin/bash
 
+package="libedit"
 scripts_directory="$(dirname "$0")"
 
 cleanup(){
@@ -8,8 +9,6 @@ cleanup(){
 }
 
 source "${scripts_directory}/common/prepare-execution-environment"
-
-package="libedit"
 
 # fetch url of latest stable
 name="$(curl --fail --location --compressed --silent 'https://www.thrysoee.dk/editline/' | grep -Po '".+?\.tar\.gz"' | tr -d '"')"
@@ -47,7 +46,5 @@ make DESTDIR="${stow_directory}/${package}.new" install
 rm -f "${stow_directory}/${package}.new${stow_directory}/${package}/share/man/man3/history.3"
 
 # install to final place
-remove-old-package
-mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
 version="${new_version}"
-install-new-package
+full-install
