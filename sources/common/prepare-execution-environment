@@ -135,6 +135,7 @@ prepare-git-source(){
   if [ $# -eq 2 ];then
     git checkout "$2"
   fi
+  log-blue 'Updating source...\n'
   while ! git pull --rebase;do sleep 1;done
 }
 

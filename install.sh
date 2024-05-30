@@ -45,4 +45,5 @@ chmod 555 "${export_directory}/README"
 chmod 500 "${install_directory}/scripts/"*.make \
           "${install_directory}/scripts/common/"* \
           "${install_directory}/scripts/meta/"*
+install --directory --mode=1777 "${export_directory}/.meta"
 printf -- '\x1b[1;32mDone. You can now run scripts to install packages\x1b[0m\n'
