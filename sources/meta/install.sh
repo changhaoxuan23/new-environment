@@ -23,6 +23,7 @@ list=(
   python-secret-storage
   gps
   python-ruff
+  send-email
 )
 unset CC
 unset CXX
