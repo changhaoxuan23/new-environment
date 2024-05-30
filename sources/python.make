@@ -53,6 +53,4 @@ for python_package_script in "${scripts_directory}/python-"*;do
 done
 version="${new_version}"
 full-install
-for python_package_script in "${scripts_directory}/python-"*;do
-  "${python_package_script}"
-done
+log-blue 'Python installed successfully, you may want to reinstall python-* packages now'

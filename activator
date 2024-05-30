@@ -44,6 +44,22 @@ new-environment-list-packages(){
     echo "$(basename "${version_file::-8}"): $(cat "${version_file}")"
   done
 }
+new-environment-read-news(){
+  if [ ! -f "__{{export_directory}}__/.meta/NEWS" ];then
+    printf -- 'no news for now\n'
+    return
+  fi
+  less -r "__{{export_directory}}__/.meta/NEWS"
+}
+new-environment-post-news(){
+  vim "__{{export_directory}}__/.meta/NEWS"
+}
+new-environment-read-comment(){
+  less "__{{export_directory}}__/.meta/"*.comment
+}
+new-environment-post-comment(){
+  vim "__{{export_directory}}__/.meta/$(whoami).comment"
+}
 
 
 # if this script is invoked directly, append a source command to .bashrc of the user

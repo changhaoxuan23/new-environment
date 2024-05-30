@@ -6,6 +6,21 @@
 #  required by that function must be set or the execution shall terminate, so you do not need to worry
 # for the commands executed right at the moment this file is sourced, see the end of this file
 
+# output helpers
+# make output colorful, all functions in this class requires no global variable
+declare -A _execution_environment_color_mapping=(
+  [red]='\x1b[1;31m'
+  [green]='\x1b[1;32m'
+  [yellow]='\x1b[1;33m'
+  [blue]='\x1b[1;34m'
+  [magenta]='\x1b[1;35m'
+  [cyan]='\x1b[1;36m'
+  [white]='\x1b[1;37m'
+)
+for color in "${!_execution_environment_color_mapping[@]}";do
+  eval "log-${color}(){ printf -- '${_execution_environment_color_mapping[${color}]}'; printf -- \$@; printf -- '\x1b[0m'; }"
+done
+
 # retry remove until we success, use this to replace rm -rf
 #  we need this since it seems like that NFS may create some internal file entry which fails rm -rf calls
 stable-remove-directory(){
@@ -38,7 +53,7 @@ format-semantic-version(){
 #  current working directory should be in the git work tree
 build-git-version(){
   new_version="$( set -o pipefail
-    git describe --long --abbrev=7 --tags 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' ||
+    git describe --long --abbrev=7 --tags 2>/dev/null | sed -e 's/\([^-]*-g\)/r\1/;s/-/./g' -E -e 's/^[^0-9]*(.+)$/\1/' ||
     printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
   )"
 }
