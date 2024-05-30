@@ -37,6 +37,7 @@ cp --recursive --no-dereference "${source_directory}/sources" "${install_directo
 cp --force "${source_directory}/activator" "${export_directory}/README"
 sed -E --in-place "s|__\{\{export_directory\}\}__|${export_directory}|g" \
                   "${install_directory}/scripts/common/prepare-execution-environment" \
+                  "${install_directory}/scripts/meta/install.sh" \
                   "${export_directory}/README"
 sed -E --in-place "s|__\{\{install_directory\}\}__|${install_directory}|g" \
                   "${export_directory}/README"

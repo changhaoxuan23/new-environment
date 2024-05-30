@@ -24,9 +24,15 @@ list=(
   gps
   python-ruff
 )
+unset CC
+unset CXX
+unset LDFLAGS
 for item in "${list[@]}";do
   if [ $# -eq 1 ] && [ "${item}" != "$1" ];then
     printf -- '\x1b[1;34mSkipping %s...\x1b[0m\n' "${item}"
+    if [ "${item}" = 'llvm' ];then
+      source '__{{export_directory}}__/README'
+    fi
     continue
   else
     shift
@@ -37,4 +43,7 @@ for item in "${list[@]}";do
     exit
   fi
   printf -- '\x1b[1;34mDone with %s\x1b[0m\n' "${item}"
+  if [ "${item}" = 'llvm' ];then
+    source '__{{export_directory}}__/README'
+  fi
 done
