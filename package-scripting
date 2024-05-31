@@ -36,7 +36,7 @@ General Guideline
     - build a version string from git commits
     - remove existing installation and install a new one
     - ...
-   use then to make your script behaves like any other ones. If you find yourself copying and pasting code
+   use them to make your script behaves like any other ones. If you find yourself copying and pasting code
     or believe that some code will be widely uses, think about making those code function(s) in utility or
     prepare-execution-environment.
 
