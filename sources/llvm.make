@@ -2,6 +2,7 @@
 
 package="llvm"
 scripts_directory="$(dirname "$0")"
+this_script="$(realpath --canonicalize-existing "$0")"
 
 cleanup(){
   stable-remove-directory "${stow_directory}/${package}.new"
@@ -54,7 +55,7 @@ full-install
 
 if [ "${rerun}" = 'true' ];then
   unset rerun
-  SKIP_VERSION_CHECK=1 "$0"
+  SKIP_VERSION_CHECK=1 "${this_script}"
   exit
 fi
 if [ -f "${stow_directory}/${package}.backup" ];then

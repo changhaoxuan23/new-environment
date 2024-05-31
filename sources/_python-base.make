@@ -17,8 +17,9 @@ cleanup(){
 source "${scripts_directory}/common/prepare-execution-environment"
 
 # version check
-new_version="$(python3 -m pip index versions "${package:7}" 2>/dev/null | grep LATEST | sed -E 's/\s*.+:\s+(.+)$/\1/' | tr -d '[:space:]')"
-if [ -f "${stow_directory}/${package}.version" ] && [ "${new_version}" = "$(cat "${stow_directory}/${package}.version")" ];then
+new_version="$(python3 -m pip index versions "${package:7}" 2>/dev/null | head -n 1 | sed -E 's|.+\((.+)\).*|\1|')"
+if ! meta-version-check && [ "${new_version}" = "$(cat "${stow_directory}/${package}.version")" ];then
+  log-yellow 'Up to date\n'
   exit
 fi
 

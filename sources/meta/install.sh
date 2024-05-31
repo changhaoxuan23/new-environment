@@ -1,5 +1,7 @@
 #!/bin/bash
 scripts_directory="$(dirname "$0")"
+source '__{{install_directory}}__/scripts/common/utility'
+if ! confirm "This will install ALL packages. Are you sure?";then exit;fi
 list=(
   stow
   readline
@@ -8,6 +10,7 @@ list=(
   cmake
   ninja
   llvm
+  bzip2
   eigen
   flex
   ncurses
@@ -25,9 +28,12 @@ list=(
   python-ruff
   send-email
 )
+source '__{{export_directory}}__/README'
 unset CC
 unset CXX
 unset LDFLAGS
+NENV_BOOTSTRAP=1
+export NENV_BOOTSTRAP
 for item in "${list[@]}";do
   if [ $# -eq 1 ] && [ "${item}" != "$1" ];then
     printf -- '\x1b[1;34mSkipping %s...\x1b[0m\n' "${item}"

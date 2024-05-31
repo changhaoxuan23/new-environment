@@ -2,9 +2,13 @@
 # to make packages here available for any shell you started later automatically, just run this script
 #  do note you still need to start a new shall before these configurations can take effect
 # to undo what we have done when you executed this file, you should remove the line that sources this file
-#  from your .bashrc file manually, so that we will not risk *nuke* your bashrc configurations by mistake.
+#  from your .bashrc file manually. Do not give us any change to *nuke* your bash configurations by mistake.
 #  **We will miss you!**
 # this will work only if you are using bash
+# this file also provides a set of utility functions (commands) named new-environment-*
+# use new-environment-[post/read]-news to post or read news
+# use new-environment-[post/read]-comment to post or read comments
+
 
 # setup PATH.
 export PATH="__{{export_directory}}__/bin:${PATH}"
@@ -60,6 +64,15 @@ new-environment-read-comment(){
 new-environment-post-comment(){
   vim "__{{export_directory}}__/.meta/$(whoami).comment"
 }
+new-environment-get-export-directory(){
+  printf -- '__{{export_directory}}__'
+}
+new-environment-get-install-directory(){
+  printf -- '__{{install_directory}}__'
+}
+# export these functions to make it available in sub shells
+export -f new-environment-get-export-directory
+export -f new-environment-get-install-directory
 
 
 # if this script is invoked directly, append a source command to .bashrc of the user

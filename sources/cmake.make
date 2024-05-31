@@ -22,7 +22,14 @@ mkdir build
 cd build
 if ! sphinx-build --version >/dev/null 2>&1;then
   temporary_directory="$(mktemp --directory)"
-  python3 -m venv "${temporary_directory}"
+  if ! python3 -m venv "${temporary_directory}";then
+    log-red "Cannot prepare sphinx automatically which is required by cmake.\n"
+    log-yellow "  You have to provide sphinx manually to this script first.\n"
+    log-yellow "  If this cannot be done, consider install python via provided script first.\n"
+    log-yellow "  If you encountered this error when executing meta/install.sh, you may want to reinstall\n"
+    log-yellow "   python later since python, when build at this time point, will have incomplete features\n"
+    exit 1
+  fi
   source "${temporary_directory}/bin/activate"
   python3 -m pip install sphinx
 fi

@@ -53,4 +53,10 @@ for python_package_script in "${scripts_directory}/python-"*;do
 done
 version="${new_version}"
 full-install
-log-cyan 'Python installed successfully, you may want to reinstall python-* packages now\n'
+
+# reinstall all python packages if not bootstrapping
+if [ -z "${NENV_BOOTSTRAP}" ];then
+  for python_package_script in "${scripts_directory}/python-"*;do
+    "${python_package_script}" uninstall
+  done
+fi

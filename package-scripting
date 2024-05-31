@@ -1,0 +1,74 @@
+PACKAGE SCRIPTING GUIDELINES
+============================
+
+This document provides guidance on how to write scripts to build new packages which are not yet provided.
+
+You must follow these guidelines if you are to open a pull request and contribute new package scripts, and
+are suggested make any script you write stay compiling with this guideline so that it will not likely to
+break when updating new-environment. Scripts following these guidelines also make sure that the script will
+do semantically the same thing when executed, regardless where the script it self locates, what is used as
+cwd when executed and which machine we are on, etc.
+
+General Guideline
+-----------------
+
+1. Every script should source prepare-execution-environment.
+   TL;DR: Setup everything this common script needs according to documentation in that file and source it
+           at the very beginning of your script.
+   This common script sets up execution environment for packaging scripts, restrict the execution by
+    terminating the procedure whenever a command fails, sets up clean functions to make sure the script
+    never leave unnecessary files behind and provides information about the environment you will need to
+    install packages. It also handles common routines like handling uninstall requests.
+
+2. Never hardcode local paths.
+   TL;DR: Use variables provided in prepare-execution-environment and retrieved via new-environment-*.
+   This is the proper way to make sure you scripts runs on every instance of new-environment.
+   A special case is about the code to source prepare-execution-environment: for scripts in this tree,
+    it is ok to locate it with path relative to the script being executed, but need to be changed to
+    $(new-environment-get-install-directory)/scripts/common/prepare-execution-environment for an out-tree
+    script to function properly.
+
+3. Utilize functions provided in prepare-execution-environment whenever applicable.
+   TL;DR: Reuse makes robustness, but be sure to read the comments
+   prepare-execution-environment provides utilities to
+    - print colored logs
+    - check if the version to be built is newer (for semantical version codes or if is different for git)
+    - build a version string from git commits
+    - remove existing installation and install a new one
+    - ...
+   use then to make your script behaves like any other ones. If you find yourself copying and pasting code
+    or believe that some code will be widely uses, think about making those code function(s) in utility or
+    prepare-execution-environment.
+
+
+Naming Convention
+-----------------
+
+1. All package building scripts must be named as <package-name>.make, in which <package-name> equals to the
+    variable ${package} set inside the script, containing only lowercase letters, digits and dashes, that is
+    [-0-9a-z]+ with regular expression, with exception specified in 2..
+
+2. It can be handy for the building result of some source being split into more than one packages. To avoid
+    duplicating code, use a base script with its name prefixed by a single '_' to do the real job and link
+    it symbolically to create scripts for each split package. The base script should not be invoked directly
+    but via those symbolic links and should vary their behavior accordingly.
+
+3. All packages that install python packages into **/lib/python-*/site-packages/ are BOUND TO python, which
+    must be named as python-*.make, while still compiling with the general naming convention. They have to be
+    specially altered to work properly, which is done automatically with the help of this naming restriction.
+    It is allowed to fetch (maybe prebuilt) package directly from PyPI but managed by new-environment and a
+    helping script is provided as sources/_python-base.make. Create symbolic link to this file with their
+    name set as python-<PyPI package name>.make, the helping script will get things done for you.
+
+
+Varying Behavior w.r.t. Environment Variables
+---------------------------------------------
+
+1. Do not provide options using command line arguments. Use environment variables instead to make it available
+    to all levels of detail and with clearly established names.
+
+2. All environment variables accessed by scripts under sources/common/ must be prefixed by NENV_ to reduce
+    probability of conflicts in names. A list of these environment variables are listed as follows:
+    - NENV_NO_VERSION_CHECK: skip version check, always (re)build and (re)install
+    - NENV_USE_GIT_BRANCH: use this branch instead of the default branch
+    - NENV_BOOTSTRAP: running in bootstrap mode

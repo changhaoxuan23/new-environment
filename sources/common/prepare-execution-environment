@@ -6,29 +6,10 @@
 #  required by that function must be set or the execution shall terminate, so you do not need to worry
 # for the commands executed right at the moment this file is sourced, see the end of this file
 
-# output helpers
-# make output colorful, all functions in this class requires no global variable
-declare -A _execution_environment_color_mapping=(
-  [red]='\x1b[1;31m'
-  [green]='\x1b[1;32m'
-  [yellow]='\x1b[1;33m'
-  [blue]='\x1b[1;34m'
-  [magenta]='\x1b[1;35m'
-  [cyan]='\x1b[1;36m'
-  [white]='\x1b[1;37m'
-)
-for color in "${!_execution_environment_color_mapping[@]}";do
-  eval "log-${color}(){ printf -- '${_execution_environment_color_mapping[${color}]}'; printf -- \$@; printf -- '\x1b[0m'; }"
-done
+# include utilities
+source "__{{install_directory}}__/scripts/common/utility"
 
-# retry remove until we success, use this to replace rm -rf
-#  we need this since it seems like that NFS may create some internal file entry which fails rm -rf calls
-stable-remove-directory(){
-  while ! rm -rf "$@";do
-    sleep 2
-  done
-}
-
+# check if a package is bound to python from its package name
 is-python-package(){
   if [ "${package::7}" = 'python-' ];then return 0;fi
   return 1
@@ -37,25 +18,9 @@ is-python-package(){
 # check bypass configuration before actual version check
 meta-version-check(){
   printf -- 'building %s: %s\n' "${package}" "${new_version}"
-  if [ -n "${SKIP_VERSION_CHECK}" ];then return 0;fi
+  if [ -n "${NENV_NO_VERSION_CHECK}" ];then return 0;fi
   if [ ! -f "${stow_directory}/${package}.version" ];then return 0;fi
   return 1
-}
-
-# format semantic version code into integers with semantical order preserved
-format-semantic-version(){
-  local splited_code
-  mapfile -d '.' -t splited_code < <(echo -n "$1")
-  printf -- '%d' "$((splited_code[0]*1000000+splited_code[1]*1000+splited_code[2]))"
-}
-
-# build git version
-#  current working directory should be in the git work tree
-build-git-version(){
-  new_version="$( set -o pipefail
-    git describe --long --abbrev=7 --tags 2>/dev/null | sed -e 's/\([^-]*-g\)/r\1/;s/-/./g' -E -e 's/^[^0-9]*(.+)$/\1/' ||
-    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
-  )"
 }
 
 # check semantic version code x.y.z, return 0 if to be proceeded
@@ -134,6 +99,8 @@ prepare-git-source(){
   cd "${stow_directory}/${package}.build"
   if [ $# -eq 2 ];then
     git checkout "$2"
+  elif [ -n "${NENV_USE_GIT_BRANCH}" ];then
+    git checkout "${NENV_USE_GIT_BRANCH}"
   fi
   log-blue 'Updating source...\n'
   while ! git pull --rebase;do sleep 1;done
