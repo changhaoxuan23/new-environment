@@ -57,12 +57,9 @@ elif [ $# -eq 2 ];then
   ensure-directory "${install_directory}"
   export_directory="$(realpath --canonicalize-existing "${export_directory}")"
   install_directory="$(realpath --canonicalize-existing "${install_directory}")"
-<<<<<<< HEAD
   printf -- 'Export directory: %s\n' "${export_directory}"
   printf -- 'Install directory: %s\n' "${install_directory}"
   if ! confirm "Is that correct?";then exit;fi
-=======
->>>>>>> e21abd2 (init)
 else
   die 'invalid usage'
 fi
