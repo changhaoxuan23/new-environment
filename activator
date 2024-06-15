@@ -42,6 +42,14 @@ else
   export LD_LIBRARY_PATH="${_new_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}"
 fi
 
+# make packages installed available to cmake find_*
+_new_CMAKE_PREFIX_PATH='__{{export_directory}}__'
+if [ -z "${_new_CMAKE_PREFIX_PATH}" ];then
+  export CMAKE_PREFIX_PATH="${_new_CMAKE_PREFIX_PATH}"
+else
+  export CMAKE_PREFIX_PATH="${_new_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
+fi
+
 # helping functions
 new-environment-list-packages(){
   for version_file in "__{{install_directory}}__/"*.version;do

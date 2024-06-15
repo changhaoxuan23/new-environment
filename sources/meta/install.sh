@@ -11,6 +11,8 @@ list=(
   ninja
   llvm
   bzip2
+  lz4
+  zstd
   eigen
   flex
   ncurses
