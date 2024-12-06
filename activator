@@ -9,14 +9,32 @@
 # use new-environment-[post/read]-news to post or read news
 # use new-environment-[post/read]-comment to post or read comments
 
+# function that will only be available in this file and scripts sourced by this file
 
-# setup PATH.
-export PATH="__{{export_directory}}__/bin:${PATH}"
+# prepend "$2" to variable whose name is stored in "$1" when not already in
+#  this assumes that different entries in the variable is separated by ':'
+prepend_pathlike () {
+  case ":${!1}:" in
+    *:"$2":*)
+      ;;
+    *)
+      declare -g "$1=$2${!1:+:${!1}}"
+  esac
+}
+
+# setup main PATH
+#  most executables should be found under __{{export_directory}}__/bin
+#  for packages that install executables to unusual location, create a script to be sourced under
+#   __{{export_directory}}__/etc/profile.d/ to add extra entries properly
+#  this also applies to all paths modified below
+prepend_pathlike PATH '__{{export_directory}}__/bin'
+export PATH
 
 # make man pages available
 #  in case the original value of $MANPATH is an empty string, there will be a tailing colon in the final value
 #  therefore include default man paths
-export MANPATH="__{{export_directory}}__/share/man:${MANPATH}"
+prepend_pathlike MANPATH '__{{export_directory}}__/share/man'
+export MANPATH
 
 # setup C and C++ compiler
 export CC=clang
@@ -25,30 +43,38 @@ export CXX=clang++
 # provide access to header files
 export CFLAGS="-I__{{export_directory}}__/include ${CFLAGS}"
 export CXXFLAGS="-I__{{export_directory}}__/include ${CXXFLAGS}"
-export CPATH="__{{export_directory}}__/include:${CPATH}"
+prepend_pathlike CPATH '__{{export_directory}}__/include'
+export CPATH
 
 # provide access to libraries
 export LDFLAGS="-fuse-ld=lld ${LDFLAGS}"
-export LIBRARY_PATH="__{{export_directory}}__/lib:${LIBRARY_PATH}"
+prepend_pathlike LIBRARY_PATH '__{{export_directory}}__/lib'
+export LIBRARY_PATH
 
 # add search path for pkg-config
-export PKG_CONFIG_PATH="__{{export_directory}}__/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:${PKG_CONFIG_PATH}"
+prepend_pathlike PKG_CONFIG_PATH /usr/local/share/pkgconfig
+prepend_pathlike PKG_CONFIG_PATH /usr/local/lib/pkgconfig
+prepend_pathlike PKG_CONFIG_PATH '__{{export_directory}}__/lib/pkgconfig'
+export PKG_CONFIG_PATH
 
 # add runtime search directory
-_new_LD_LIBRARY_PATH='__{{export_directory}}__/lib/x86_64-unknown-linux-gnu:__{{export_directory}}__/lib'
-if [ -z "${LD_LIBRARY_PATH}" ];then
-  export LD_LIBRARY_PATH="${_new_LD_LIBRARY_PATH}"
-else
-  export LD_LIBRARY_PATH="${_new_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}"
-fi
+prepend_pathlike LD_LIBRARY_PATH '__{{export_directory}}__/lib'
+prepend_pathlike LD_LIBRARY_PATH '__{{export_directory}}__/lib/x86_64-unknown-linux-gnu'
+export LD_LIBRARY_PATH
 
 # make packages installed available to cmake find_*
-_new_CMAKE_PREFIX_PATH='__{{export_directory}}__'
-if [ -z "${_new_CMAKE_PREFIX_PATH}" ];then
-  export CMAKE_PREFIX_PATH="${_new_CMAKE_PREFIX_PATH}"
-else
-  export CMAKE_PREFIX_PATH="${_new_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
+prepend_pathlike CMAKE_PREFIX_PATH '__{{export_directory}}__'
+export CMAKE_PREFIX_PATH
+
+# source extra scripts
+if [ -d '__{{export_directory}}__/etc/profile.d/' ]; then
+	for profile in '__{{export_directory}}__/etc/profile.d/'*.sh; do
+		[ -r "${profile}" ] && . "${profile}"
+	done
+	unset profile
 fi
+
+unset -f prepend_pathlike
 
 # helping functions
 new-environment-list-packages(){

@@ -121,6 +121,57 @@ full-install(){
   install-new-package
 }
 
+# listing candidates for find-recent-*
+#  we search each path in the PATH envrionment variable since we are looking for executables
+#  a findutils-default regular expression shall be passed as $1 to instruct how does files we are looking for
+#   looks like, which will be passed to find as parameter of -regex
+#  full path of candidates will be printed to stdout which are separated by a single null byte
+_candidate_lister(){
+  mapfile -d ':' -t paths < <(echo -n "${PATH}")
+  for path in "${paths[@]}";do
+    # search entries within PATH
+    find "${path}" -follow -maxdepth 1 -type f -regex "$1" 2>/dev/null | while read -r candidate;do
+      printf '%s\0' "$(realpath "${candidate}")"
+    done
+  done
+}
+
+# helper to find the most recent gcc available on local machine
+#  the full path of the gcc executable will be printed to stdout
+find-recent-gcc(){
+  local temporary_directory
+  temporary_directory="$(mktemp --directory)"
+  cat > "${temporary_directory}/version.c" <<EOF
+#include <stdio.h>
+int main(int _, char** argv){ printf("%u.%u.%u", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__); putchar('\0'); puts(argv[1]); return 0; }
+EOF
+  truncate --size=0 "${temporary_directory}/candidates"
+  _candidate_lister '.+/gcc\(-[0-9]+\)?' | while read -r -d $'\0' candidate;do
+    "${candidate}" -o "${temporary_directory}/version" "${temporary_directory}/version.c"
+    "${temporary_directory}/version" "${candidate}" >> "${temporary_directory}/candidates"
+  done
+  sort --version-sort --reverse "${temporary_directory}/candidates" | head -n 1 | cut -d $'\x00' -f 2
+  rm -rf "${temporary_directory}"
+}
+
+# helper to find the most recent g++ available on local machine
+#  the full path of the gcc executable will be printed to stdout
+find-recent-g++(){
+  local temporary_directory
+  temporary_directory="$(mktemp --directory)"
+  cat > "${temporary_directory}/version.cc" <<EOF
+#include <cstdio>
+int main(int _, char** argv){ printf("%u.%u.%u", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__); putchar('\0'); puts(argv[1]); return 0; }
+EOF
+  truncate --size=0 "${temporary_directory}/candidates"
+  _candidate_lister '.+/g\+\+\(-[0-9]+\)?' | while read -r -d $'\0' candidate;do
+    "${candidate}" -o "${temporary_directory}/version" "${temporary_directory}/version.cc"
+    "${temporary_directory}/version" "${candidate}" >> "${temporary_directory}/candidates"
+  done
+  sort --version-sort --reverse "${temporary_directory}/candidates" | head -n 1 | cut -d $'\x00' -f 2
+  rm -rf "${temporary_directory}"
+}
+
 
 # prepare execution environment for scripts that builds softwares
 # this file shall be sourced, which requires:
