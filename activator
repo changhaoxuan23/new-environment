@@ -10,16 +10,27 @@
 # use new-environment-[post/read]-comment to post or read comments
 
 # function that will only be available in this file and scripts sourced by this file
+_private_functions=(
+  prepend_environment
+  prepend_pathlike
+)
 
-# prepend "$2" to variable whose name is stored in "$1" when not already in
-#  this assumes that different entries in the variable is separated by ':'
-prepend_pathlike () {
-  case ":${!1}:" in
-    *:"$2":*)
+# prepend "$3" to variable whose name is stored in "$1" when not already in
+#  different entries in the variable are separated by "$2"
+prepend_environment () {
+  case "$2${!1}$2" in
+    *"$2$3$2"*)
       ;;
     *)
-      declare -g "$1=$2${!1:+:${!1}}"
+      declare -g "$1=$3${!1:+$2${!1}}"
   esac
+}
+
+# since many variables are path-like, whose entries are separated by ':'
+#  this helper will simplify the code
+#  prepend $2 to variable whose name is stored in $1
+prepend_pathlike () {
+  prepend_environment "$1" ':' "$2"
 }
 
 # setup main PATH
@@ -41,13 +52,16 @@ export CC=clang
 export CXX=clang++
 
 # provide access to header files
-export CFLAGS="-I__{{export_directory}}__/include ${CFLAGS}"
-export CXXFLAGS="-I__{{export_directory}}__/include ${CXXFLAGS}"
+prepend_environment CFLAGS ' ' '-I__{{export_directory}}__/include'
+export CFLAGS
+prepend_environment CXXFLAGS ' ' '-I__{{export_directory}}__/include'
+export CXXFLAGS
 prepend_pathlike CPATH '__{{export_directory}}__/include'
 export CPATH
 
 # provide access to libraries
-export LDFLAGS="-fuse-ld=lld ${LDFLAGS}"
+prepend_environment LDFLAGS ' ' '-fuse-ld=lld'
+export LDFLAGS
 prepend_pathlike LIBRARY_PATH '__{{export_directory}}__/lib'
 export LIBRARY_PATH
 
@@ -74,7 +88,9 @@ if [ -d '__{{export_directory}}__/etc/profile.d/' ]; then
 	unset profile
 fi
 
-unset -f prepend_pathlike
+for func in "${_private_functions[@]}";do
+  unset -f "${func}"
+done
 
 # helping functions
 new-environment-list-packages(){
