@@ -71,6 +71,10 @@ prepend_pathlike PKG_CONFIG_PATH /usr/local/lib/pkgconfig
 prepend_pathlike PKG_CONFIG_PATH '__{{export_directory}}__/lib/pkgconfig'
 export PKG_CONFIG_PATH
 
+# add search path for automake
+prepend_pathlike ACLOCAL_PATH '__{{export_directory}}__/share/aclocal'
+export ACLOCAL_PATH
+
 # add runtime search directory
 prepend_pathlike LD_LIBRARY_PATH '__{{export_directory}}__/lib'
 prepend_pathlike LD_LIBRARY_PATH '__{{export_directory}}__/lib/x86_64-unknown-linux-gnu'

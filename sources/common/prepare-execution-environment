@@ -106,6 +106,36 @@ prepare-git-source(){
   while ! git pull --rebase;do sleep 1;done
 }
 
+# prepare source from the GNU source server
+#   uses               : variable package, the name of package
+#   positional argument: (optional) the extension of the package
+#  this function fetches the GNU source server at https://ftp.gnu.org/gnu to find the latest version of
+#   current package, which is determined by the modification time provided by the server, downloads and
+#   extracts the source code for subsequent operations
+#  after this function returns, source will be available at ${stow_directory}/${package}.build, which
+#   will be current working directory, version will be checked since these packages shall use semantic
+#   versioning, and new_version shall be set
+prepare-gnu-source() {
+  local extension
+  if [ $# -eq 1 ];then
+    extension="$1"
+  else
+    extension='.tar.xz'
+  fi
+
+  source_tar="$(curl --fail --silent "https://ftp.gnu.org/gnu/${package}/?C=M;O=D" | grep -Po 'href="'"${package}"'[^"]+?'"${extension}"'"' | sed -E 's|href="(.+)"|\1|' | head -n 1)"
+  cd "${stow_directory}"
+  wget --no-netrc --https-only "https://ftp.gnu.org/gnu/${package}/${source_tar}"
+
+  new_version="${source_tar:${#package}+1:-${#extension}}"
+  if ! check-semantic-version;then exit;fi
+
+  tar xvf "${source_tar}"
+  rm --force "${source_tar}"
+  mv "${package}-${new_version}" "${package}.build"
+  cd "${package}.build"
+}
+
 # perform a full procedure of regular installation:
 #  remove the old package (if which exists) via remove-old-package
 #  copy newly installed copy to the final position
@@ -172,6 +202,37 @@ EOF
   rm -rf "${temporary_directory}"
 }
 
+# helper to find full path of the first candidate of certain header in current configuration
+#  this helper function will return the file actually included when you compile C source that
+#    #include <header_name>
+#  by invoking C compiler in current execution environment, where header_name is $1, the only argument
+find-header-location() {
+  local helper_script
+  local header_name
+  local helper_make
+  local full_path
+
+  header_name="$1"
+
+  helper_script="$(mktemp)"
+  cat > "${helper_script}" <<EOF
+target_name="\$1"
+shift
+for arg in "\$@";do
+  if [ "\$(basename "\${arg}")" = "\${target_name}" ];then
+    echo "\${arg}"
+    break
+  fi
+done
+EOF
+
+  helper_make="$(mktemp)"
+  printf '#include <%s>' "${header_name}" | "${CC}" -E -M > "${helper_make}"
+  printf '\t@bash %s %s $^\n' "${helper_script}" "${header_name}" >> "${helper_make}"
+  full_path="$(make --file="${helper_make}")"
+  printf '%s' "${full_path/\/include\/"${header_name}"}"
+  rm --force "${helper_make}" "${helper_script}"
+}
 
 # prepare execution environment for scripts that builds softwares
 # this file shall be sourced, which requires:
