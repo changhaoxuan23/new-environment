@@ -77,7 +77,7 @@ EOF
   helper_make="$(mktemp)"
   helper_source="$(mktemp)"
   printf '#include <%s>\n' "${header_name}" > "${helper_source}"
-  "${CC}" -E -M "${helper_source}" > "${helper_make}"
+  "${CC}" -E -xc -M "${helper_source}" > "${helper_make}"
   printf '\t@bash %s %s $^\n' "${helper_script}" "${header_name}" >> "${helper_make}"
   full_path="$(make --file="${helper_make}")"
   printf '%s' "${full_path/\/include\/"${header_name}"}"
