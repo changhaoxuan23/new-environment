@@ -69,10 +69,12 @@ cp --recursive --no-dereference "${source_directory}/sources" "${install_directo
 cp --force "${source_directory}/activator" "${export_directory}/README"
 sed -E --in-place "s|__\{\{export_directory\}\}__|${export_directory}|g" \
                   "${install_directory}/scripts/common/prepare-execution-environment" \
+                  "${install_directory}/scripts/common/nenv-makepkg" \
                   "${install_directory}/scripts/meta/install.sh" \
                   "${export_directory}/README"
 sed -E --in-place "s|__\{\{install_directory\}\}__|${install_directory}|g" \
                   "${install_directory}/scripts/common/prepare-execution-environment" \
+                  "${install_directory}/scripts/common/nenv-makepkg" \
                   "${install_directory}/scripts/meta/install.sh" \
                   "${export_directory}/README"
 chmod 555 "${export_directory}/README"
@@ -80,6 +82,8 @@ chmod 500 "${install_directory}/scripts/"*.make \
           "${install_directory}/scripts/common/"* \
           "${install_directory}/scripts/meta/"*
 install --directory --mode=1777 "${export_directory}/.meta"
+install --directory --mode=0755 "${export_directory}/bin"
+ln --symbolic "${install_directory}/scripts/common/nenv-makepkg" "${export_directory}/bin/nenv-makepkg"
 printf -- '\x1b[1;32mDone. You can now run scripts to install packages\x1b[0m\n'
 if [ -z "${new_install}" ] || [ "${new_install}" != 'true' ];then
   exit

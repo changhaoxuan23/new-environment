@@ -1,0 +1,138 @@
+#!/bin/env bash
+set -e
+# run the make script
+#  This is the new driver of make files for new-environment meant to provide a more flexible building routine.
+#  New make files written after this script is introduced should define functions and variables to be invoked
+#   by this script for different stages of building and installing a package
+#  Usage: nenv-makepkg <make-file>
+#
+# All variables and functions previously available to make file after prepare-execution-environment is sources
+#  are still available when make file is executed by this driver, while the following variables will are also
+#  available to ease coding
+. '__{{install_directory}}__/scripts/common/prepare-execution-environment' --nenv-makepkg-v0
+# prepare few helper variables to ease coding
+## final destination of the installation, generally speaking the value shall be set as prefix
+package_prefix="${stow_directory}/${package}"
+## location of the source
+source_directory="${stow_directory}/${package}.build"
+## location to which temporary result shall be installed
+package_directory="${stow_directory}/${package}.new"
+## standard prefix to access file in the temporary install destination
+### if we have configured PREFIX=/foo and are installing to temporary destination at /bar,
+###  this will result to the files being installed into /bar/foo/...
+###  the file that will be installed to /foo/bin/a should be found at /bar/foo/bin/a
+###  this variable will make accessing files in the temporary destination simpler
+package_content_directory="${stow_directory}/${package}.new${package_prefix}"
+#
+# You can include other helping functions or override default function if you are careful enough by pointing
+#  environment variable NENV_EXTRA_SOURCE to a list of files containing them. This variable is parsed by:
+#  if it is empty, do nothing
+if [ -n "${NENV_EXTRA_SOURCE}" ];then
+#  if it is not empty, handle it as if it is an array of paths separated by ':'
+#   just like PATH, there is no way to escape the separator therefore it is impossible to include one in path
+  mapfile -d ':' -t extra_sources < <(echo -n "${NENV_EXTRA_SOURCE}")
+  for extra_source in "${extra_sources[@]}";do
+#  for each element in the list, if it points to a file, source it directly
+#   if it points to a directory, source all files under its subtree
+    mapfile -d $'\x00' -t files < <(find "${extra_source}" -type f -print0)
+    for f in "${files[@]}";do
+      . "${f}"
+    done
+  done
+fi
+#
+# The full routine is split into 6 stages following:
+#  source , fetch the source code by downloading latest release or cloning/updating the repository
+#            check on the version shall also be done here to prevent building the same version multiple times
+#           function: nenv_make_source
+#           this stage will be skipped if NENV_SKIP_SOURCE is set to any value that is not empty
+#
+#  prepare, do preparations on the source code before the actual build
+#           function: nenv_make_prepare
+#           this stage will be skipped if NENV_SKIP_PREPARE is set to any value that is not empty
+#
+#  build  , actually build the code
+#           function: nenv_make_build
+#           this stage will be skipped if NENV_SKIP_BUILD is set to any value that is not empty
+#
+#  check  , check the build result via tests provided alongside the source code
+#           function: nenv_make_check
+#           this stage will be skipped if NENV_SKIP_CHECK is set to any value that is not empty
+#
+#  pack   , install the build result into a temporary destination, effectively creating a binary package
+#           function: nenv_make_pack
+#           this stage will be skipped if NENV_SKIP_PACK is set to any value that is not empty
+#
+#  install, install the binary package to the final destination
+#           function: nenv_make_install
+#           this stage will be skipped if NENV_SKIP_INSTALL is set to any value that is not empty
+#
+#  all these functions shall return 0 on success and return non-zero value on error
+#  do not terminate executing with exit or similar methods since the driver may have further work to be done
+#   even after the build has failed
+#
+# To allow more flexibility and reduce amount of code that must be duplicated, hooks are introduced.
+#  Up to now, we have the following hooks:
+#   cleanup, which will run which the driver exists
+#
+#  All hooks are invoked by invoking each and every element as a function in the array bearing the same name
+#   as the hook. The array can be safely omitted.
+
+do_cleanup() {
+  for f in "${cleanup[@]}";do
+    "$f"
+  done
+}
+trap do_cleanup EXIT
+
+_make_file="$1"
+shift
+if [ ! -f "${_make_file}" ];then
+  _make_file="__{{install_directory}}__/scripts/${_make_file}"
+fi
+. "${_make_file}"
+check-uninstall "$@"
+
+# call the function to download source
+if [ -z "${NENV_SKIP_SOURCE}" ] && [ "$(type -t nenv_make_source 2>/dev/null)" = 'function' ];then
+  log-cyan '==> preparing source...\n'
+  mkdir --parent "${source_directory}"
+  nenv_make_source
+  log-green '==> source prepared\n'
+fi
+
+# call the function to prepare before the build
+if [ -z "${NENV_SKIP_PREPARE}" ] && [ "$(type -t nenv_make_prepare 2>/dev/null)" = 'function' ];then
+  log-cyan '==> preparing for build...\n'
+  nenv_make_prepare
+  log-green '==> ready to build\n'
+fi
+
+# call the function to build
+if [ -z "${NENV_SKIP_BUILD}" ] && [ "$(type -t nenv_make_build 2>/dev/null)" = 'function' ];then
+  log-cyan '==> building...\n'
+  nenv_make_build
+  log-green '==> package built\n'
+fi
+
+# call the function to check the build
+if [ -z "${NENV_SKIP_CHECK}" ] && [ "$(type -t nenv_make_check 2>/dev/null)" = 'function' ];then
+  log-cyan '==> checking the build...\n'
+  nenv_make_check
+  log-green '==> building result checked\n'
+fi
+
+# call the function to install to the temporary destination
+if [ -z "${NENV_SKIP_PACK}" ] && [ "$(type -t nenv_make_pack 2>/dev/null)" = 'function' ];then
+  log-cyan '==> packing...\n'
+  mkdir --parent "${package_directory}"
+  nenv_make_pack
+  log-green '==> package is packed\n'
+fi
+
+# call the function to install to the final destination
+if [ -z "${NENV_SKIP_INSTALL}" ] && [ "$(type -t nenv_make_install 2>/dev/null)" = 'function' ];then
+  log-cyan '==> installing...\n'
+  nenv_make_install
+  log-green '==> finished\n'
+fi

@@ -88,6 +88,13 @@ check-uninstall(){
   fi
 }
 
+# reset the git repository so that next run will not be blocked when updating the source
+reset-git-repository() {
+  if [ -d "${stow_directory}/${package}.build" ];then
+    git -C "${stow_directory}/${package}.build" reset --hard HEAD
+  fi
+}
+
 # prepare source from a git repository
 # positional argument: the url to remote repository
 #                      (optional) the branch/tag to check out
@@ -104,6 +111,10 @@ prepare-git-source(){
   fi
   log-blue 'Updating source...\n'
   while ! git pull --rebase;do sleep 1;done
+
+  if [ -n "${_prepare_execution_environment_use_hook}" ];then
+    cleanup+=(reset-git-repository)
+  fi
 }
 
 # prepare source from the GNU source server
@@ -234,45 +245,68 @@ EOF
   rm --force "${helper_make}" "${helper_script}"
 }
 
-# prepare execution environment for scripts that builds softwares
-# this file shall be sourced, which requires:
-#  function cleanup that cleans when the script terminates
-#  variable scripts_directory that points to the directory holding the script
-#  variable package, the name of package
-# and which sets:
-#  variable stow_directory that points to the directory holding individuals softwares
-#  variable target_directory that points to the nenv directory
+# remove the package directory
+clean-package-directory() {
+  rm --recursive --force "${stow_directory}/${package}.new"
+}
 
-# make the execution terminate whenever an error is triggered
-set -e
+# remove the build directory
+clean-build-directory() {
+  rm --recursive --force "${stow_directory}/${package}.build"
+}
 
-# ensure all variables required have been set up properly
-if ! type -t cleanup > /dev/null 2>&1;then
-  printf -- 'cleanup not set!\n'
+if [ "$#" -eq 0 ];then
+  # sourced by legacy make files, keep the routine unchanged
+
+  # prepare execution environment for scripts that builds softwares
+  # this file shall be sourced, which requires:
+  #  function cleanup that cleans when the script terminates
+  #  variable scripts_directory that points to the directory holding the script
+  #  variable package, the name of package
+  # and which sets:
+  #  variable stow_directory that points to the directory holding individuals softwares
+  #  variable target_directory that points to the nenv directory
+
+  # make the execution terminate whenever an error is triggered
+  set -e
+
+  # ensure all variables required have been set up properly
+  if ! type -t cleanup > /dev/null 2>&1;then
+    printf -- 'cleanup not set!\n'
+    exit 1
+  fi
+
+  if [ -z "${scripts_directory}" ];then
+    printf -- 'scripts_directory is empty!\n'
+    exit 1
+  fi
+
+  if [ -z "${package}" ];then
+    printf -- 'package is empty!\n'
+    exit 1
+  fi
+
+  # make path absolute
+  scripts_directory="$(realpath --canonicalize-existing "${scripts_directory}")"
+
+  # setup stow_directory
+  stow_directory="$(realpath --canonicalize-existing "${scripts_directory}/..")"
+
+  # hardcoded target directory
+  target_directory="__{{export_directory}}__"
+
+  # ensure cleanup afterwards so that we will not nuke files by mistake
+  trap cleanup EXIT
+
+  # do common things: check if we should do uninstall
+  check-uninstall "$@"
+elif [ "$1" = '--nenv-makepkg-v0' ];then
+  # setup variables
+  scripts_directory='__{{install_directory}}__/scripts'
+  stow_directory='__{{install_directory}}__'
+  target_directory='__{{export_directory}}__'
+  _prepare_execution_environment_use_hook=1
+else
+  log-red 'prepare-execution-environment is invoked with unexpected argument [%s]!\n' "$1"
   exit 1
 fi
-
-if [ -z "${scripts_directory}" ];then
-  printf -- 'scripts_directory is empty!\n'
-  exit 1
-fi
-
-if [ -z "${package}" ];then
-  printf -- 'package is empty!\n'
-  exit 1
-fi
-
-# make path absolute
-scripts_directory="$(realpath --canonicalize-existing "${scripts_directory}")"
-
-# setup stow_directory
-stow_directory="$(realpath --canonicalize-existing "${scripts_directory}/..")"
-
-# hardcoded target directory
-target_directory="__{{export_directory}}__"
-
-# ensure cleanup afterwards so that we will not nuke files by mistake
-trap cleanup EXIT
-
-# do common things: check if we should do uninstall
-check-uninstall "$@"

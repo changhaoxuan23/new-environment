@@ -1,4 +1,4 @@
 # new-environment
 This collection of scripts aims to help with setting up a environment with new packages side-by-side with the one provided by the system, typically for users of lab servers who finds it troublesome due to out-dated softwares yet have insufficient permission to upgrade them globally.  
 Therefore, this script assume you have at least a set of working tools, including git, make, C/C++ compilers, python, etc., though which may be (awfully) out-dated.  
-Run ./install.sh to see how to install the scripts, and sources/meta/install.sh provides one script to install all packages supported, but remember to execute the on installed, not the one in this tree.
+Run ./install.sh to see how to install the scripts, and sources/meta/install.sh provides one script to install all packages supported, but remember to execute the one installed, not the one in this tree.
