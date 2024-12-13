@@ -7,6 +7,11 @@ nenv_make_source() {
   # prepare source
   prepare-git-source 'git://gcc.gnu.org/git/gcc.git'
 
+  # we shall use the latest commit on a release branch
+  local _branch
+  _branch="$(git branch --remotes | grep /releases/gcc | sort --version-sort --reverse | head -n 1)"
+  git checkout "${_branch}"
+
   # version check
   build-git-version
   if ! check-git-version;then exit;fi
@@ -26,11 +31,11 @@ nenv_make_build() {
   
   local _common_options
   _common_options=(
-    --prefix="${stow_directory}/${package}"
-    --libdir="${stow_directory}/${package}/lib"
-    --libexecdir="${stow_directory}/${package}/lib"
-    --mandir="${stow_directory}/${package}/share/man"
-    --infodir="${stow_directory}/${package}/share/info"
+    --prefix="${package_prefix}"
+    --libdir="${package_prefix}/lib"
+    --libexecdir="${package_prefix}/lib"
+    --mandir="${package_prefix}/share/man"
+    --infodir="${package_prefix}/share/info"
     --with-build-config=bootstrap-lto
     --with-linker-hash-style=gnu
     --with-system-zlib
@@ -115,7 +120,7 @@ nenv_make_check() {
 nenv_make_pack() {
   cd "${source_directory}/main-build"
 
-  make --directory=gcc DESTDIR="${stow_directory}/${package}.new" install-driver     \
+  make --directory=gcc DESTDIR="${package_directory}" install-driver     \
                                                                   install-cpp        \
                                                                   install-gcc-ar     \
                                                                   c++.install-common \
@@ -123,61 +128,61 @@ nenv_make_pack() {
                                                                   install-plugin     \
                                                                   install-lto-wrapper
 
-  _internal_version="$(echo -n '__GNUC__.__GNUC_MINOR__.__GNUC_PATCHLEVEL__' | "${stow_directory}/${package}.new/${stow_directory}/${package}/bin/cpp" -P | tr -cd '.[:digit:]')"
+  _internal_version="$(echo -n '__GNUC__.__GNUC_MINOR__.__GNUC_PATCHLEVEL__' | "${package_content_directory}/bin/cpp" -P | tr -cd '.[:digit:]')"
 
-  install -m755 -t "${stow_directory}/${package}.new/${stow_directory}/${package}/bin/" gcc/gcov{,-tool}
-  install -m755 -t "${stow_directory}/${package}.new/${stow_directory}/${package}/lib/gcc/${CHOST}/${_internal_version}/" gcc/{cc1,cc1plus,collect2,lto1}
+  install -m755 -t "${package_content_directory}/bin/" gcc/gcov{,-tool}
+  install -m755 -t "${package_content_directory}/lib/gcc/${CHOST}/${_internal_version}/" gcc/{cc1,cc1plus,collect2,lto1}
 
-  make --directory="${CHOST}/libgcc" DESTDIR="${stow_directory}/${package}.new" install
-  rm --force "${stow_directory}/${package}.new/${stow_directory}/${package}/"lib/libgcc_s.so*
+  make --directory="${CHOST}/libgcc" DESTDIR="${package_directory}" install
+  rm --force "${package_content_directory}/"lib/libgcc_s.so*
 
-  make --directory="${CHOST}/libstdc++-v3/src" DESTDIR="${stow_directory}/${package}.new" install
-  make --directory="${CHOST}/libstdc++-v3/include" DESTDIR="${stow_directory}/${package}.new" install
-  make --directory="${CHOST}/libstdc++-v3/libsupc++" DESTDIR="${stow_directory}/${package}.new" install
-  make --directory="${CHOST}/libstdc++-v3/python" DESTDIR="${stow_directory}/${package}.new" install
+  make --directory="${CHOST}/libstdc++-v3/src" DESTDIR="${package_directory}" install
+  make --directory="${CHOST}/libstdc++-v3/include" DESTDIR="${package_directory}" install
+  make --directory="${CHOST}/libstdc++-v3/libsupc++" DESTDIR="${package_directory}" install
+  make --directory="${CHOST}/libstdc++-v3/python" DESTDIR="${package_directory}" install
 
-  make DESTDIR="${stow_directory}/${package}.new" install-libcc1
-  install -d "${stow_directory}/${package}.new/${stow_directory}/${package}/share/gdb/auto-load/${stow_directory}/${package}/lib"
-  mv "${stow_directory}/${package}.new/${stow_directory}/${package}/"lib/libstdc++.so.6.*-gdb.py "${stow_directory}/${package}.new/${stow_directory}/${package}/share/gdb/auto-load/${stow_directory}/${package}/lib/"
-  rm "${stow_directory}/${package}.new/${stow_directory}/${package}/"lib/libstdc++.so*
+  make DESTDIR="${package_directory}" install-libcc1
+  install -d "${package_content_directory}/share/gdb/auto-load${package_prefix}/lib"
+  mv "${package_content_directory}/"lib/libstdc++.so.6.*-gdb.py "${package_content_directory}/share/gdb/auto-load${package_prefix}/lib/"
+  rm "${package_content_directory}/"lib/libstdc++.so*
 
-  make DESTDIR="${stow_directory}/${package}.new" install-fixincludes
-  make --directory=gcc DESTDIR="${stow_directory}/${package}.new" install-mkheaders
+  make DESTDIR="${package_directory}" install-fixincludes
+  make --directory=gcc DESTDIR="${package_directory}" install-mkheaders
 
-  make --directory=lto-plugin DESTDIR="${stow_directory}/${package}.new" install
-  install -dm755 "${stow_directory}/${package}.new/${stow_directory}/${package}/"lib/bfd-plugins/
-  ln --symbolic "${stow_directory}/${package}/lib/gcc/${CHOST}/${_internal_version}"/liblto_plugin.so "${stow_directory}/${package}.new/${stow_directory}/${package}/lib/bfd-plugins/"
+  make --directory=lto-plugin DESTDIR="${package_directory}" install
+  install -dm755 "${package_content_directory}/"lib/bfd-plugins/
+  ln --symbolic "../gcc/${CHOST}/${_internal_version}"/liblto_plugin.so "${package_content_directory}/lib/bfd-plugins/"
 
-  make --directory="${CHOST}/libgomp" DESTDIR="${stow_directory}/${package}.new" install-nodist_{libsubinclude,toolexeclib}HEADERS
-  make --directory="${CHOST}/libitm" DESTDIR="${stow_directory}/${package}.new" install-nodist_toolexeclibHEADERS
-  make --directory="${CHOST}/libquadmath" DESTDIR="${stow_directory}/${package}.new" install-nodist_libsubincludeHEADERS
-  make --directory="${CHOST}/libsanitizer" DESTDIR="${stow_directory}/${package}.new" install-nodist_{saninclude,toolexeclib}HEADERS
-  make --directory="${CHOST}/libsanitizer/asan" DESTDIR="${stow_directory}/${package}.new" install-nodist_toolexeclibHEADERS
-  make --directory="${CHOST}/libsanitizer/tsan" DESTDIR="${stow_directory}/${package}.new" install-nodist_toolexeclibHEADERS
-  make --directory="${CHOST}/libsanitizer/lsan" DESTDIR="${stow_directory}/${package}.new" install-nodist_toolexeclibHEADERS
+  make --directory="${CHOST}/libgomp" DESTDIR="${package_directory}" install-nodist_{libsubinclude,toolexeclib}HEADERS
+  make --directory="${CHOST}/libitm" DESTDIR="${package_directory}" install-nodist_toolexeclibHEADERS
+  make --directory="${CHOST}/libquadmath" DESTDIR="${package_directory}" install-nodist_libsubincludeHEADERS
+  make --directory="${CHOST}/libsanitizer" DESTDIR="${package_directory}" install-nodist_{saninclude,toolexeclib}HEADERS
+  make --directory="${CHOST}/libsanitizer/asan" DESTDIR="${package_directory}" install-nodist_toolexeclibHEADERS
+  make --directory="${CHOST}/libsanitizer/tsan" DESTDIR="${package_directory}" install-nodist_toolexeclibHEADERS
+  make --directory="${CHOST}/libsanitizer/lsan" DESTDIR="${package_directory}" install-nodist_toolexeclibHEADERS
 
-  make --directory=gcc DESTDIR="${stow_directory}/${package}.new" install-man install-info
-  rm "${stow_directory}/${package}.new/${stow_directory}/${package}/"share/man/man1/lto-dump.1
+  make --directory=gcc DESTDIR="${package_directory}" install-man install-info
+  rm "${package_content_directory}/"share/man/man1/lto-dump.1
 
-  make --directory=libcpp DESTDIR="${stow_directory}/${package}.new" install
-  make --directory=gcc    DESTDIR="${stow_directory}/${package}.new" install-po
+  make --directory=libcpp DESTDIR="${package_directory}" install
+  make --directory=gcc    DESTDIR="${package_directory}" install-po
 
-  ln --symbolic gcc "${stow_directory}/${package}.new/${stow_directory}/${package}/"bin/cc
+  ln --symbolic gcc "${package_content_directory}/"bin/cc
 
   for binary in {c++,g++,gcc,gcc-ar,gcc-nm,gcc-ranlib};do
-    ln --symbolic "${binary}" "${stow_directory}/${package}.new/${stow_directory}/${package}/bin/x86_64-linux-gnu-${binary}"
+    ln --symbolic "${binary}" "${package_content_directory}/bin/x86_64-linux-gnu-${binary}"
   done
 
   # we skip documentation for now
-  # make --directory="${CHOST}/libstdc++-v3/doc" DESTDIR="${stow_directory}/${package}.new" doc-install-man
+  # make --directory="${CHOST}/libstdc++-v3/doc" DESTDIR="${package_directory}" doc-install-man
 
-  rm -f "${stow_directory}/${package}.new/${stow_directory}/${package}/"lib32/lib{stdc++,gcc_s}.so
+  rm -f "${package_content_directory}/"lib32/lib{stdc++,gcc_s}.so
 
-  python -m compileall "${stow_directory}/${package}.new/${stow_directory}/${package}/share/gcc-${_internal_version}/"
-  python -O -m compileall "${stow_directory}/${package}.new/${stow_directory}/${package}/share/gcc-${_internal_version}/"
+  python -m compileall "${package_content_directory}/share/gcc-${_internal_version}/"
+  python -O -m compileall "${package_content_directory}/share/gcc-${_internal_version}/"
 
-  make --directory="${CHOST}/libgcc" DESTDIR="${stow_directory}/${package}.new" install-shared
-  rm --force "${stow_directory}/${package}.new/${stow_directory}/${package}/lib/gcc/${CHOST}/${_internal_version}/libgcc_eh.a"
+  make --directory="${CHOST}/libgcc" DESTDIR="${package_directory}" install-shared
+  rm --force "${package_content_directory}/lib/gcc/${CHOST}/${_internal_version}/libgcc_eh.a"
 
   for lib in libatomic                  \
              libgomp                    \
@@ -186,27 +191,27 @@ nenv_make_pack() {
              libsanitizer/{a,l,ub,t}san \
              libstdc++-v3/src           \
              libvtv; do
-    make --directory="${CHOST}/${lib}" DESTDIR="${stow_directory}/${package}.new" install-toolexeclibLTLIBRARIES
+    make --directory="${CHOST}/${lib}" DESTDIR="${package_directory}" install-toolexeclibLTLIBRARIES
   done
 
-  make --directory="${CHOST}/libstdc++-v3/po" DESTDIR="${stow_directory}/${package}.new" install
+  make --directory="${CHOST}/libstdc++-v3/po" DESTDIR="${package_directory}" install
 
-  rm --recursive --force "${stow_directory}/${package}.new/${stow_directory}/${package}/lib/gcc/${CHOST}/${_internal_version}/include/d/"
-  rm --force "${stow_directory}/${package}.new/${stow_directory}/${package}/"lib/libgphobos.spec
+  rm --recursive --force "${package_content_directory}/lib/gcc/${CHOST}/${_internal_version}/include/d/"
+  rm --force "${package_content_directory}/"lib/libgphobos.spec
 
   for lib in libgomp \
              libitm  \
              libquadmath; do
-    make --directory="${CHOST}/${lib}" DESTDIR="${stow_directory}/${package}.new" install-info
+    make --directory="${CHOST}/${lib}" DESTDIR="${package_directory}" install-info
   done
 
-  rm --recursive --force "${stow_directory}/${package}.new/${stow_directory}/${package}/"lib32/
+  rm --recursive --force "${package_content_directory}/"lib32/
 
-  install -Dm644 ../COPYING.RUNTIME "${stow_directory}/${package}.new/${stow_directory}/${package}/share/licenses/${package}/RUNTIME.LIBRARY.EXCEPTION"
+  install -Dm644 ../COPYING.RUNTIME "${package_content_directory}/share/licenses/${package}/RUNTIME.LIBRARY.EXCEPTION"
 
-  make --directory=gcc DESTDIR="${stow_directory}/${package}.new" lto.install-{common,man,info}
+  make --directory=gcc DESTDIR="${package_directory}" lto.install-{common,man,info}
 
-  make --directory=gcc DESTDIR="${stow_directory}/${package}.new" jit.install-common jit.install-info
+  make --directory=gcc DESTDIR="${package_directory}" jit.install-common jit.install-info
 
   rm --force "${package_content_directory}/share/info/dir"
 }
