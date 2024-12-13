@@ -58,6 +58,7 @@ find-header-location() {
   local header_name
   local helper_make
   local full_path
+  local helper_source
 
   header_name="$1"
 
@@ -74,9 +75,11 @@ done
 EOF
 
   helper_make="$(mktemp)"
-  printf '#include <%s>' "${header_name}" | "${CC}" -E -M > "${helper_make}"
+  helper_source="$(mktemp)"
+  printf '#include <%s>\n' "${header_name}" > "${helper_source}"
+  "${CC}" -E -M "${helper_source}" > "${helper_make}"
   printf '\t@bash %s %s $^\n' "${helper_script}" "${header_name}" >> "${helper_make}"
   full_path="$(make --file="${helper_make}")"
   printf '%s' "${full_path/\/include\/"${header_name}"}"
-  rm --force "${helper_make}" "${helper_script}"
+  rm --force "${helper_make}" "${helper_script}" "${helper_source}"
 }

@@ -8,9 +8,8 @@ nenv_make_source() {
   prepare-git-source 'git://gcc.gnu.org/git/gcc.git'
 
   # we shall use the latest commit on a release branch
-  cleanup+=(reset-git-repository)
   local _branch
-  _branch="$(git branch --remotes | grep /releases/gcc | sort --version-sort --reverse | head -n 1)"
+  _branch="$(git branch --remotes | grep /releases/gcc | sort --version-sort --reverse | head -n 1 | sed -E 's|\s*(.+?)\s*|\1|')"
   git checkout "${_branch}"
 
   # version check

@@ -83,6 +83,7 @@ chmod 500 "${install_directory}/scripts/"*.make \
           "${install_directory}/scripts/meta/"*
 install --directory --mode=1777 "${export_directory}/.meta"
 install --directory --mode=0755 "${export_directory}/bin"
+rm --force "${export_directory}/bin/nenv-makepkg"
 ln --symbolic "${install_directory}/scripts/common/nenv-makepkg" "${export_directory}/bin/nenv-makepkg"
 printf -- '\x1b[1;32mDone. You can now run scripts to install packages\x1b[0m\n'
 if [ -z "${new_install}" ] || [ "${new_install}" != 'true' ];then
