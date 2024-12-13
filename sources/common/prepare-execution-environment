@@ -1,312 +1,52 @@
 #!/bin/bash
 
+# include utilities
+source '__{{install_directory}}__/scripts/common/utility'
 # utility functions. most of them requires some global variable properly set, make sure you read the comment
 #  before using any of which. If you see nothing regards to variable requirement within the comment, possibly
 #  that means that at the time this script is sourced, which gives you access to these functions, the variable
 #  required by that function must be set or the execution shall terminate, so you do not need to worry
 # for the commands executed right at the moment this file is sourced, see the end of this file
 
-# include utilities
-source "__{{install_directory}}__/scripts/common/utility"
+# prepare execution environment for scripts that builds softwares
+# this file shall be sourced, which requires:
+#  function cleanup that cleans when the script terminates
+#  variable scripts_directory that points to the directory holding the script
+#  variable package, the name of package
+# and which sets:
+#  variable stow_directory that points to the directory holding individuals softwares
+#  variable target_directory that points to the nenv directory
 
-# check if a package is bound to python from its package name
-is-python-package(){
-  if [ "${package::7}" = 'python-' ];then return 0;fi
-  return 1
-}
+# make the execution terminate whenever an error is triggered
+set -e
 
-# check bypass configuration before actual version check
-meta-version-check(){
-  printf -- 'building %s: %s\n' "${package}" "${new_version}"
-  if [ -n "${NENV_NO_VERSION_CHECK}" ];then return 0;fi
-  if [ ! -f "${stow_directory}/${package}.version" ];then return 0;fi
-  return 1
-}
-
-# check semantic version code x.y.z, return 0 if to be proceeded
-#  uses: new_version and package
-#  old version is automatically read from version file if exists
-check-semantic-version(){
-  if meta-version-check;then return 0;fi
-  local old_version
-  local formatted_new_version
-  old_version="$(cat "${stow_directory}/${package}.version")"
-  old_version="$(format-semantic-version "${old_version}")"
-  formatted_new_version="$(format-semantic-version "${new_version}")"
-  if [ "${formatted_new_version}" -le "${old_version}" ];then
-    printf -- '%s: already up to date\n' "${package}"
-    return 1
-  fi
-  return 0
-}
-
-# check git version, return 0 if to be proceeded
-#  uses: new_version and package
-check-git-version(){
-  if meta-version-check;then return 0;fi
-  local old_version
-  old_version="$(cat "${stow_directory}/${package}.version")"
-  if [ "${new_version}" = "${old_version}" ];then
-    printf -- '%s: already up to date\n' "${package}"
-    return 1
-  fi
-  return 0
-}
-
-# remove old package if exists
-#  uses: variable package, the name of package
-remove-old-package(){
-  if [ -f "${stow_directory}/${package}.version" ];then
-    stow --dir="${stow_directory}" --target="${target_directory}" --delete "${package}"
-    if is-python-package;then
-      stow --dir="${stow_directory}" --target="${stow_directory}/python" --delete "${package}"
-    fi
-    stable-remove-directory "${stow_directory}/${package}"
-    rm -f "${stow_directory}/${package}.version"
-  fi
-}
-
-# install new package to publicly visible destination
-#  uses: variable package, the name of package
-#        variable version, the new version string to save
-install-new-package(){
-  stow --dir="${stow_directory}" --target="${target_directory}" --stow "${package}"
-  if is-python-package;then
-    stow --dir="${stow_directory}" --target="${stow_directory}/python" --stow "${package}"
-  fi
-  printf '%s: installed %s\n' "${package}" "${version}"
-  printf '%s' "${version}" > "${stow_directory}/${package}.version"
-}
-
-# check and uninstall if required
-#  if this function is called directly, you will need to pass all parameters with "$@"
-check-uninstall(){
-  if [ $# -lt 1 ];then return;fi
-  if [ "$1" = 'uninstall' ];then
-    remove-old-package
-    exit
-  fi
-}
-
-# reset the git repository so that next run will not be blocked when updating the source
-reset-git-repository() {
-  if [ -d "${stow_directory}/${package}.build" ];then
-    git -C "${stow_directory}/${package}.build" reset --hard HEAD
-  fi
-}
-
-# prepare source from a git repository
-# positional argument: the url to remote repository
-#                      (optional) the branch/tag to check out
-# after this function returns, current working directory shall be in the working tree
-prepare-git-source(){
-  if [ ! -d "${stow_directory}/${package}.build" ];then
-    while ! git clone "$1" "${stow_directory}/${package}.build";do sleep 1;done
-  fi
-  cd "${stow_directory}/${package}.build"
-  if [ $# -eq 2 ];then
-    git checkout "$2"
-  elif [ -n "${NENV_USE_GIT_BRANCH}" ];then
-    git checkout "${NENV_USE_GIT_BRANCH}"
-  fi
-  log-blue 'Updating source...\n'
-  while ! git pull --rebase;do sleep 1;done
-
-  if [ -n "${_prepare_execution_environment_use_hook}" ];then
-    cleanup+=(reset-git-repository)
-  fi
-}
-
-# prepare source from the GNU source server
-#   uses               : variable package, the name of package
-#   positional argument: (optional) the extension of the package
-#  this function fetches the GNU source server at https://ftp.gnu.org/gnu to find the latest version of
-#   current package, which is determined by the modification time provided by the server, downloads and
-#   extracts the source code for subsequent operations
-#  after this function returns, source will be available at ${stow_directory}/${package}.build, which
-#   will be current working directory, version will be checked since these packages shall use semantic
-#   versioning, and new_version shall be set
-prepare-gnu-source() {
-  local extension
-  if [ $# -eq 1 ];then
-    extension="$1"
-  else
-    extension='.tar.xz'
-  fi
-
-  source_tar="$(curl --fail --silent "https://ftp.gnu.org/gnu/${package}/?C=M;O=D" | grep -Po 'href="'"${package}"'[^"]+?'"${extension}"'"' | sed -E 's|href="(.+)"|\1|' | head -n 1)"
-  cd "${stow_directory}"
-  wget --no-netrc --https-only "https://ftp.gnu.org/gnu/${package}/${source_tar}"
-
-  new_version="${source_tar:${#package}+1:-${#extension}}"
-  if ! check-semantic-version;then exit;fi
-
-  tar xvf "${source_tar}"
-  rm --force "${source_tar}"
-  mv "${package}-${new_version}" "${package}.build"
-  cd "${package}.build"
-}
-
-# perform a full procedure of regular installation:
-#  remove the old package (if which exists) via remove-old-package
-#  copy newly installed copy to the final position
-#  install it via install-new-package
-# note that this requires the newly installed copy is installed by
-#  make DESTDIR="${stow_directory}/${package}.new" install
-# or something similar, otherwise you will need to install it manually
-# uses:
-#   variable version, the new version string to save
-full-install(){
-  remove-old-package
-  mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
-  install-new-package
-}
-
-# listing candidates for find-recent-*
-#  we search each path in the PATH envrionment variable since we are looking for executables
-#  a findutils-default regular expression shall be passed as $1 to instruct how does files we are looking for
-#   looks like, which will be passed to find as parameter of -regex
-#  full path of candidates will be printed to stdout which are separated by a single null byte
-_candidate_lister(){
-  mapfile -d ':' -t paths < <(echo -n "${PATH}")
-  for path in "${paths[@]}";do
-    # search entries within PATH
-    find "${path}" -follow -maxdepth 1 -type f -regex "$1" 2>/dev/null | while read -r candidate;do
-      printf '%s\0' "$(realpath "${candidate}")"
-    done
-  done
-}
-
-# helper to find the most recent gcc available on local machine
-#  the full path of the gcc executable will be printed to stdout
-find-recent-gcc(){
-  local temporary_directory
-  temporary_directory="$(mktemp --directory)"
-  cat > "${temporary_directory}/version.c" <<EOF
-#include <stdio.h>
-int main(int _, char** argv){ printf("%u.%u.%u", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__); putchar('\0'); puts(argv[1]); return 0; }
-EOF
-  truncate --size=0 "${temporary_directory}/candidates"
-  _candidate_lister '.+/gcc\(-[0-9]+\)?' | while read -r -d $'\0' candidate;do
-    "${candidate}" -o "${temporary_directory}/version" "${temporary_directory}/version.c"
-    "${temporary_directory}/version" "${candidate}" >> "${temporary_directory}/candidates"
-  done
-  sort --version-sort --reverse "${temporary_directory}/candidates" | head -n 1 | cut -d $'\x00' -f 2
-  rm -rf "${temporary_directory}"
-}
-
-# helper to find the most recent g++ available on local machine
-#  the full path of the gcc executable will be printed to stdout
-find-recent-g++(){
-  local temporary_directory
-  temporary_directory="$(mktemp --directory)"
-  cat > "${temporary_directory}/version.cc" <<EOF
-#include <cstdio>
-int main(int _, char** argv){ printf("%u.%u.%u", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__); putchar('\0'); puts(argv[1]); return 0; }
-EOF
-  truncate --size=0 "${temporary_directory}/candidates"
-  _candidate_lister '.+/g\+\+\(-[0-9]+\)?' | while read -r -d $'\0' candidate;do
-    "${candidate}" -o "${temporary_directory}/version" "${temporary_directory}/version.cc"
-    "${temporary_directory}/version" "${candidate}" >> "${temporary_directory}/candidates"
-  done
-  sort --version-sort --reverse "${temporary_directory}/candidates" | head -n 1 | cut -d $'\x00' -f 2
-  rm -rf "${temporary_directory}"
-}
-
-# helper to find full path of the first candidate of certain header in current configuration
-#  this helper function will return the file actually included when you compile C source that
-#    #include <header_name>
-#  by invoking C compiler in current execution environment, where header_name is $1, the only argument
-find-header-location() {
-  local helper_script
-  local header_name
-  local helper_make
-  local full_path
-
-  header_name="$1"
-
-  helper_script="$(mktemp)"
-  cat > "${helper_script}" <<EOF
-target_name="\$1"
-shift
-for arg in "\$@";do
-  if [ "\$(basename "\${arg}")" = "\${target_name}" ];then
-    echo "\${arg}"
-    break
-  fi
-done
-EOF
-
-  helper_make="$(mktemp)"
-  printf '#include <%s>' "${header_name}" | "${CC}" -E -M > "${helper_make}"
-  printf '\t@bash %s %s $^\n' "${helper_script}" "${header_name}" >> "${helper_make}"
-  full_path="$(make --file="${helper_make}")"
-  printf '%s' "${full_path/\/include\/"${header_name}"}"
-  rm --force "${helper_make}" "${helper_script}"
-}
-
-# remove the package directory
-clean-package-directory() {
-  rm --recursive --force "${stow_directory}/${package}.new"
-}
-
-# remove the build directory
-clean-build-directory() {
-  rm --recursive --force "${stow_directory}/${package}.build"
-}
-
-if [ "$#" -eq 0 ];then
-  # sourced by legacy make files, keep the routine unchanged
-
-  # prepare execution environment for scripts that builds softwares
-  # this file shall be sourced, which requires:
-  #  function cleanup that cleans when the script terminates
-  #  variable scripts_directory that points to the directory holding the script
-  #  variable package, the name of package
-  # and which sets:
-  #  variable stow_directory that points to the directory holding individuals softwares
-  #  variable target_directory that points to the nenv directory
-
-  # make the execution terminate whenever an error is triggered
-  set -e
-
-  # ensure all variables required have been set up properly
-  if ! type -t cleanup > /dev/null 2>&1;then
-    printf -- 'cleanup not set!\n'
-    exit 1
-  fi
-
-  if [ -z "${scripts_directory}" ];then
-    printf -- 'scripts_directory is empty!\n'
-    exit 1
-  fi
-
-  if [ -z "${package}" ];then
-    printf -- 'package is empty!\n'
-    exit 1
-  fi
-
-  # make path absolute
-  scripts_directory="$(realpath --canonicalize-existing "${scripts_directory}")"
-
-  # setup stow_directory
-  stow_directory="$(realpath --canonicalize-existing "${scripts_directory}/..")"
-
-  # hardcoded target directory
-  target_directory="__{{export_directory}}__"
-
-  # ensure cleanup afterwards so that we will not nuke files by mistake
-  trap cleanup EXIT
-
-  # do common things: check if we should do uninstall
-  check-uninstall "$@"
-elif [ "$1" = '--nenv-makepkg-v0' ];then
-  # setup variables
-  scripts_directory='__{{install_directory}}__/scripts'
-  stow_directory='__{{install_directory}}__'
-  target_directory='__{{export_directory}}__'
-  _prepare_execution_environment_use_hook=1
-else
-  log-red 'prepare-execution-environment is invoked with unexpected argument [%s]!\n' "$1"
+# ensure all variables required have been set up properly
+if ! type -t cleanup > /dev/null 2>&1;then
+  printf -- 'cleanup not set!\n'
   exit 1
 fi
+
+if [ -z "${scripts_directory}" ];then
+  printf -- 'scripts_directory is empty!\n'
+  exit 1
+fi
+
+if [ -z "${package}" ];then
+  printf -- 'package is empty!\n'
+  exit 1
+fi
+
+# make path absolute
+scripts_directory="$(realpath --canonicalize-existing "${scripts_directory}")"
+
+# setup stow_directory
+stow_directory="$(realpath --canonicalize-existing "${scripts_directory}/..")"
+
+# hardcoded target directory
+target_directory="__{{export_directory}}__"
+
+# ensure cleanup afterwards so that we will not nuke files by mistake
+trap cleanup EXIT
+
+# do common things: check if we should do uninstall
+check-uninstall "$@"

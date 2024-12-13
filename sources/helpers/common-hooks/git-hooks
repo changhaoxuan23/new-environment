@@ -1,0 +1,9 @@
+# reset the git repository so that next run will not be blocked when updating the source
+reset-git-repository() {
+  local _main_branch
+  if [ -d "${source_directory}" ];then
+    git -C "${source_directory}" reset --hard HEAD
+    _main_branch="$(git -C "${source_directory}" remote show origin | grep 'HEAD branch' | sed -E 's|.+:\s*(.+)|\1|')"
+    git -C "${source_directory}" checkout "${_main_branch}"
+  fi
+}

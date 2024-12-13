@@ -1,0 +1,5 @@
+# check if a package is bound to python from its package name
+is-python-package(){
+  if [ "${package::7}" = 'python-' ];then return 0;fi
+  return 1
+}

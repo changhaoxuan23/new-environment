@@ -1,0 +1,53 @@
+# check bypass configuration before actual version check
+meta-version-check(){
+  printf -- 'building %s: %s\n' "${package}" "${new_version}"
+  if [ -n "${NENV_NO_VERSION_CHECK}" ];then return 0;fi
+  if [ ! -f "${stow_directory}/${package}.version" ];then return 0;fi
+  return 1
+}
+
+# check semantic version code x.y.z, return 0 if to be proceeded
+#  uses: new_version and package
+#  old version is automatically read from version file if exists
+check-semantic-version(){
+  if meta-version-check;then return 0;fi
+  local old_version
+  local formatted_new_version
+  old_version="$(cat "${stow_directory}/${package}.version")"
+  old_version="$(format-semantic-version "${old_version}")"
+  formatted_new_version="$(format-semantic-version "${new_version}")"
+  if [ "${formatted_new_version}" -le "${old_version}" ];then
+    printf -- '%s: already up to date\n' "${package}"
+    return 1
+  fi
+  return 0
+}
+
+# check git version, return 0 if to be proceeded
+#  uses: new_version and package
+check-git-version(){
+  if meta-version-check;then return 0;fi
+  local old_version
+  old_version="$(cat "${stow_directory}/${package}.version")"
+  if [ "${new_version}" = "${old_version}" ];then
+    printf -- '%s: already up to date\n' "${package}"
+    return 1
+  fi
+  return 0
+}
+
+# format semantic version code into integers with semantical order preserved
+format-semantic-version(){
+  local splited_code
+  mapfile -d '.' -t splited_code < <(echo -n "$1")
+  printf -- '%d' "$((splited_code[0]*1000000+splited_code[1]*1000+splited_code[2]))"
+}
+
+# build git version
+#  current working directory should be in the git work tree
+build-git-version(){
+  new_version="$( set -o pipefail
+    git describe --long --abbrev=7 --tags 2>/dev/null | sed -e 's/\([^-]*-g\)/r\1/;s/-/./g' -E -e 's/^[^0-9]*(.+)$/\1/' ||
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+  )"
+}

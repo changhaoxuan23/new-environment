@@ -1,0 +1,49 @@
+# remove old package if exists
+#  uses: variable package, the name of package
+remove-old-package(){
+  if [ -f "${stow_directory}/${package}.version" ];then
+    stow --dir="${stow_directory}" --target="${target_directory}" --delete "${package}"
+    if is-python-package;then
+      stow --dir="${stow_directory}" --target="${stow_directory}/python" --delete "${package}"
+    fi
+    stable-remove-directory "${stow_directory}/${package}"
+    rm -f "${stow_directory}/${package}.version"
+  fi
+}
+
+# install new package to publicly visible destination
+#  uses: variable package, the name of package
+#        variable version, the new version string to save
+install-new-package(){
+  stow --dir="${stow_directory}" --target="${target_directory}" --stow "${package}"
+  if is-python-package;then
+    stow --dir="${stow_directory}" --target="${stow_directory}/python" --stow "${package}"
+  fi
+  printf '%s: installed %s\n' "${package}" "${version}"
+  printf '%s' "${version}" > "${stow_directory}/${package}.version"
+}
+
+# check and uninstall if required
+#  if this function is called directly, you will need to pass all parameters with "$@"
+check-uninstall(){
+  if [ $# -lt 1 ];then return;fi
+  if [ "$1" = 'uninstall' ];then
+    remove-old-package
+    exit
+  fi
+}
+
+# perform a full procedure of regular installation:
+#  remove the old package (if which exists) via remove-old-package
+#  copy newly installed copy to the final position
+#  install it via install-new-package
+# note that this requires the newly installed copy is installed by
+#  make DESTDIR="${stow_directory}/${package}.new" install
+# or something similar, otherwise you will need to install it manually
+# uses:
+#   variable version, the new version string to save
+full-install(){
+  remove-old-package
+  mv "${stow_directory}/${package}.new${stow_directory}/${package}" "${stow_directory}/${package}"
+  install-new-package
+}

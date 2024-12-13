@@ -1,0 +1,9 @@
+# remove the package directory
+clean-package-directory() {
+  rm --recursive --force "${package_directory}"
+}
+
+# remove the build directory
+clean-build-directory() {
+  rm --recursive --force "${source_directory}"
+}

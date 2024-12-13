@@ -1,0 +1,29 @@
+# prepare source from the GNU source server
+#   uses               : variable package, the name of package
+#   positional argument: (optional) the extension of the package
+#  this function fetches the GNU source server at https://ftp.gnu.org/gnu to find the latest version of
+#   current package, which is determined by the modification time provided by the server, downloads and
+#   extracts the source code for subsequent operations
+#  after this function returns, source will be available at ${stow_directory}/${package}.build, which
+#   will be current working directory, version will be checked since these packages shall use semantic
+#   versioning, and new_version shall be set
+prepare-gnu-source() {
+  local extension
+  if [ $# -eq 1 ];then
+    extension="$1"
+  else
+    extension='.tar.xz'
+  fi
+
+  source_tar="$(curl --fail --silent "https://ftp.gnu.org/gnu/${package}/?C=M;O=D" | grep -Po 'href="'"${package}"'[^"]+?'"${extension}"'"' | sed -E 's|href="(.+)"|\1|' | head -n 1)"
+  cd "${stow_directory}"
+  wget --no-netrc --https-only "https://ftp.gnu.org/gnu/${package}/${source_tar}"
+
+  new_version="${source_tar:${#package}+1:-${#extension}}"
+  if ! check-semantic-version;then exit;fi
+
+  tar xvf "${source_tar}"
+  rm --force "${source_tar}"
+  mv "${package}-${new_version}" "${package}.build"
+  cd "${package}.build"
+}

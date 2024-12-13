@@ -1,6 +1,5 @@
 #!/bin/env bash
 set -e
-# run the make script
 #  This is the new driver of make files for new-environment meant to provide a more flexible building routine.
 #  New make files written after this script is introduced should define functions and variables to be invoked
 #   by this script for different stages of building and installing a package
@@ -8,38 +7,23 @@ set -e
 #
 # All variables and functions previously available to make file after prepare-execution-environment is sources
 #  are still available when make file is executed by this driver, while the following variables will are also
-#  available to ease coding
-. '__{{install_directory}}__/scripts/common/prepare-execution-environment' --nenv-makepkg-v0
-# prepare few helper variables to ease coding
-## final destination of the installation, generally speaking the value shall be set as prefix
-package_prefix="${stow_directory}/${package}"
-## location of the source
-source_directory="${stow_directory}/${package}.build"
-## location to which temporary result shall be installed
-package_directory="${stow_directory}/${package}.new"
-## standard prefix to access file in the temporary install destination
+#  available to ease coding:
+## package_prefix: final destination of the installation, generally speaking the value shall be set as prefix
+## source_directory: location of the source
+## package_directory: location to which temporary result shall be installed
+## package_content_directory: standard prefix to access file in the temporary install destination
 ### if we have configured PREFIX=/foo and are installing to temporary destination at /bar,
 ###  this will result to the files being installed into /bar/foo/...
 ###  the file that will be installed to /foo/bin/a should be found at /bar/foo/bin/a
 ###  this variable will make accessing files in the temporary destination simpler
-package_content_directory="${stow_directory}/${package}.new${package_prefix}"
 #
 # You can include other helping functions or override default function if you are careful enough by pointing
 #  environment variable NENV_EXTRA_SOURCE to a list of files containing them. This variable is parsed by:
 #  if it is empty, do nothing
-if [ -n "${NENV_EXTRA_SOURCE}" ];then
 #  if it is not empty, handle it as if it is an array of paths separated by ':'
 #   just like PATH, there is no way to escape the separator therefore it is impossible to include one in path
-  mapfile -d ':' -t extra_sources < <(echo -n "${NENV_EXTRA_SOURCE}")
-  for extra_source in "${extra_sources[@]}";do
 #  for each element in the list, if it points to a file, source it directly
 #   if it points to a directory, source all files under its subtree
-    mapfile -d $'\x00' -t files < <(find "${extra_source}" -type f -print0)
-    for f in "${files[@]}";do
-      . "${f}"
-    done
-  done
-fi
 #
 # The full routine is split into 6 stages following:
 #  source , fetch the source code by downloading latest release or cloning/updating the repository
@@ -85,12 +69,54 @@ do_cleanup() {
 }
 trap do_cleanup EXIT
 
+# prepare basic variables
+scripts_directory='__{{install_directory}}__/scripts'
+stow_directory='__{{install_directory}}__'
+target_directory='__{{export_directory}}__'
+_using_hook=1
+
+# load standard helpers
+_load_helping_script_list '__{{install_directory}}__/scripts/helpers'
+
+# load user specified helpers
+_load_helping_script_list "${NENV_EXTRA_SOURCE}"
+
+# include the make script
+#  since setting up helping variables requires variables set by the make script, we have to do this at the
+#   very beginning
+#  but this is done after helper functions are set in case the make script will use some of which outside
+#   the functions
 _make_file="$1"
 shift
 if [ ! -f "${_make_file}" ];then
   _make_file="__{{install_directory}}__/scripts/${_make_file}"
 fi
 . "${_make_file}"
+
+# source helping script at the path saved in $1
+#  if it points to a file, source it directly, otherwise source all files within it if it is a directory
+_load_helping_script() {
+  mapfile -d $'\x00' -t files < <(find "$1" -type f -print0)
+  for f in "${files[@]}";do
+    . "${f}"
+  done
+}
+
+# load all helping sources listed in the list, which shall have the same structure like PATH
+#  such list shall be stored in $1
+_load_helping_script_list() {
+  mapfile -d ':' -t sources < <(echo -n "$1")
+  for target in "${sources[@]}";do
+    _load_helping_script "${target}"
+  done
+}
+
+# prepare extra helping variables
+package_prefix="${stow_directory}/${package}"
+source_directory="${stow_directory}/${package}.build"
+package_directory="${stow_directory}/${package}.new"
+package_content_directory="${stow_directory}/${package}.new${package_prefix}"
+
 check-uninstall "$@"
 
 # call the function to download source
