@@ -69,6 +69,24 @@ do_cleanup() {
 }
 trap do_cleanup EXIT
 
+# source helping script at the path saved in $1
+#  if it points to a file, source it directly, otherwise source all files within it if it is a directory
+_load_helping_script() {
+  mapfile -d $'\x00' -t files < <(find "$1" -type f -print0)
+  for f in "${files[@]}";do
+    . "${f}"
+  done
+}
+
+# load all helping sources listed in the list, which shall have the same structure like PATH
+#  such list shall be stored in $1
+_load_helping_script_list() {
+  mapfile -d ':' -t sources < <(echo -n "$1")
+  for target in "${sources[@]}";do
+    _load_helping_script "${target}"
+  done
+}
+
 # prepare basic variables
 scripts_directory='__{{install_directory}}__/scripts'
 stow_directory='__{{install_directory}}__'
@@ -92,24 +110,6 @@ if [ ! -f "${_make_file}" ];then
   _make_file="__{{install_directory}}__/scripts/${_make_file}"
 fi
 . "${_make_file}"
-
-# source helping script at the path saved in $1
-#  if it points to a file, source it directly, otherwise source all files within it if it is a directory
-_load_helping_script() {
-  mapfile -d $'\x00' -t files < <(find "$1" -type f -print0)
-  for f in "${files[@]}";do
-    . "${f}"
-  done
-}
-
-# load all helping sources listed in the list, which shall have the same structure like PATH
-#  such list shall be stored in $1
-_load_helping_script_list() {
-  mapfile -d ':' -t sources < <(echo -n "$1")
-  for target in "${sources[@]}";do
-    _load_helping_script "${target}"
-  done
-}
 
 # prepare extra helping variables
 package_prefix="${stow_directory}/${package}"

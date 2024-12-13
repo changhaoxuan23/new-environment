@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-source "$(dirname "$0")/sources/common/utility"
+source "$(dirname "$0")/sources/helpers/io"
 show-help(){
   printf -- 'Usage: install.sh [<export-directory> <install-directory>]\n'
   printf -- '  <export-directory>  is the directory to be used by everyone on the same machine, like /\n'
