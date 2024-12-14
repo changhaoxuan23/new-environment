@@ -1,9 +1,14 @@
+# shellcheck shell=bash
+# this file is not meant to be executed directly but sourced by other scripts, therefore we will not
+#  include a shebang for this file
+
 # prepare source from a git repository
 # positional argument: the url to remote repository
 #                      (optional) the branch/tag to check out
 # after this function returns, current working directory shall be in the working tree
 prepare-git-source(){
-  if [ ! -d "${stow_directory}/${package}.build" ];then
+  if [ ! -d "${stow_directory}/${package}.build" ] || ! git -C "${stow_directory}/${package}.build" status >/dev/null 2>&1;then
+    rm --force --recursive "${stow_directory}/${package}.build"
     while ! git clone "$1" "${stow_directory}/${package}.build";do sleep 1;done
   fi
   cd "${stow_directory}/${package}.build"

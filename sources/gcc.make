@@ -1,5 +1,6 @@
-#!/bin/bash
-
+# shellcheck shell=bash
+# this file is not meant to be executed directly but sourced by other scripts, therefore we will not
+#  include a shebang for this file
 package="gcc"
 cleanup+=(clean-package-directory)
 
@@ -89,8 +90,7 @@ nenv_make_build() {
                               LDFLAGS_FOR_TARGET="${LDFLAGS}" \
                               bootstrap
 
-  # we skip documentation for now
-  # make --output-sync --directory="${CHOST}/libstdc++-v3/doc" doc-man-doxygen
+  make --output-sync --directory="${CHOST}/libstdc++-v3/doc" doc-man-doxygen
 
   cd ..
   stable-remove-directory libgccjit-build
@@ -173,8 +173,7 @@ nenv_make_pack() {
     ln --symbolic "${binary}" "${package_content_directory}/bin/x86_64-linux-gnu-${binary}"
   done
 
-  # we skip documentation for now
-  # make --directory="${CHOST}/libstdc++-v3/doc" DESTDIR="${package_directory}" doc-install-man
+  make --directory="${CHOST}/libstdc++-v3/doc" DESTDIR="${package_directory}" doc-install-man
 
   rm -f "${package_content_directory}/"lib32/lib{stdc++,gcc_s}.so
 

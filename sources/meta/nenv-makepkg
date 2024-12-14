@@ -51,7 +51,8 @@ set -e
 #           function: nenv_make_install
 #           this stage will be skipped if NENV_SKIP_INSTALL is set to any value that is not empty
 #
-#  all these functions shall return 0 on success and return non-zero value on error
+#  all these functions shall return 0 on success, 77 for request of exit without error to report, and other
+#   non-zero value on error
 #  do not terminate executing with exit or similar methods since the driver may have further work to be done
 #   even after the build has failed
 #
@@ -119,46 +120,33 @@ package_content_directory="${stow_directory}/${package}.new${package_prefix}"
 
 check-uninstall "$@"
 
-# call the function to download source
-if [ -z "${NENV_SKIP_SOURCE}" ] && [ "$(type -t nenv_make_source 2>/dev/null)" = 'function' ];then
-  log-cyan '==> preparing source...\n'
-  mkdir --parent "${source_directory}"
-  nenv_make_source
-  log-green '==> source prepared\n'
-fi
+stages=(
+  # syntax: <name>%<function>%<skip-variable>%<start-message>%<success-message>
+  'source%nenv_make_source%NENV_SKIP_SOURCE%preparing source...%source ready'
+  'prepare%nenv_make_prepare%NENV_SKIP_PREPARE%preparing for build...%ready to build'
+  'build%nenv_make_build%NENV_SKIP_BUILD%building...%package built'
+  'check%nenv_make_check%NENV_SKIP_CHECK%checking the build...%build checked'
+  'pack%nenv_make_pack%NENV_SKIP_PACK%packing...%package packed'
+  'install%nenv_make_install%NENV_SKIP_INSTALL%installing...%installed'
+)
 
-# call the function to prepare before the build
-if [ -z "${NENV_SKIP_PREPARE}" ] && [ "$(type -t nenv_make_prepare 2>/dev/null)" = 'function' ];then
-  log-cyan '==> preparing for build...\n'
-  nenv_make_prepare
-  log-green '==> ready to build\n'
-fi
-
-# call the function to build
-if [ -z "${NENV_SKIP_BUILD}" ] && [ "$(type -t nenv_make_build 2>/dev/null)" = 'function' ];then
-  log-cyan '==> building...\n'
-  nenv_make_build
-  log-green '==> package built\n'
-fi
-
-# call the function to check the build
-if [ -z "${NENV_SKIP_CHECK}" ] && [ "$(type -t nenv_make_check 2>/dev/null)" = 'function' ];then
-  log-cyan '==> checking the build...\n'
-  nenv_make_check
-  log-green '==> building result checked\n'
-fi
-
-# call the function to install to the temporary destination
-if [ -z "${NENV_SKIP_PACK}" ] && [ "$(type -t nenv_make_pack 2>/dev/null)" = 'function' ];then
-  log-cyan '==> packing...\n'
-  mkdir --parent "${package_directory}"
-  nenv_make_pack
-  log-green '==> package is packed\n'
-fi
-
-# call the function to install to the final destination
-if [ -z "${NENV_SKIP_INSTALL}" ] && [ "$(type -t nenv_make_install 2>/dev/null)" = 'function' ];then
-  log-cyan '==> installing...\n'
-  nenv_make_install
-  log-green '==> finished\n'
-fi
+mkdir --parent "${source_directory}" "${package_directory}"
+for stage in "${stages[@]}";do
+  read -r -d '%' name func skipper start_message success_message < <(echo -n "${stage}")
+  if [ -z "${!skipper}" ] && [ "$(type -t "${func}" 2>/dev/null)" = 'function' ];then
+    log-cyan '==> %s: %s\n' "${name}" "${start_message}"
+    "${func}"
+    return_value=$?
+    if [ ${return_value} -ne 0 ] && [ ${return_value} -ne 77 ] ;then
+      log-red '==> %s returned non-zero value\n' "${func}"
+      break
+    fi
+    if [ ${return_value} -ne 0 ];then
+      log-blue '%s: terminate requested, which is not an error\n' "${name}"
+      break
+    fi
+    log-green '==> %s\n' "${success_message}"
+  else
+    log-cyan '==> %s: skipped' "${name}"
+  fi
+done

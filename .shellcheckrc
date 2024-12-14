@@ -1,0 +1,2 @@
+# follow sources since we use them very frequently and the scripts sourced are available
+external-sources=true

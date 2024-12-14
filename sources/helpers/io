@@ -1,3 +1,7 @@
+# shellcheck shell=bash
+# this file is not meant to be executed directly but sourced by other scripts, therefore we will not
+#  include a shebang for this file
+
 # output helpers
 # make output colorful, all functions in this class requires no global variable
 declare -A _execution_environment_color_mapping=(
@@ -16,7 +20,7 @@ done
 # retry remove until we success, use this to replace rm -rf
 #  we need this since it seems like that NFS may create some internal file entry which fails rm -rf calls
 stable-remove-directory(){
-  while ! rm -rf "$@";do
+  while ! rm --recursive --force "$@";do
     sleep 2
   done
 }

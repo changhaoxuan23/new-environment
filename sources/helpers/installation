@@ -6,6 +6,9 @@ remove-old-package(){
     if is-python-package;then
       stow --dir="${stow_directory}" --target="${stow_directory}/python" --delete "${package}"
     fi
+    if [ -d "${stow_directory}/${package}/share/info" ];then
+      find "${stow_directory}/${package}/share/info" -type f -exec install-info --delete --dir-file="${target_directory}/share/info/dir" --info-file='{}' ';'
+    fi
     stable-remove-directory "${stow_directory}/${package}"
     rm -f "${stow_directory}/${package}.version"
   fi
@@ -18,6 +21,10 @@ install-new-package(){
   stow --dir="${stow_directory}" --target="${target_directory}" --stow "${package}"
   if is-python-package;then
     stow --dir="${stow_directory}" --target="${stow_directory}/python" --stow "${package}"
+  fi
+  rm --force "${stow_directory}/${package}/share/info/dir"
+  if [ -d "${stow_directory}/${package}/share/info" ];then
+    find "${stow_directory}/${package}/share/info" -type f -exec install-info --dir-file="${target_directory}/share/info/dir" --info-file='{}' ';'
   fi
   printf '%s: installed %s\n' "${package}" "${version}"
   printf '%s' "${version}" > "${stow_directory}/${package}.version"

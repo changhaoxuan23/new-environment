@@ -1,3 +1,4 @@
+#!/bin/env bash
 # to use packages installed here, simply source this file
 # to make packages here available for any shell you started later automatically, just run this script
 #  do note you still need to start a new shall before these configurations can take effect
