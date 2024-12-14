@@ -132,7 +132,12 @@ stages=(
 
 mkdir --parent "${source_directory}" "${package_directory}"
 for stage in "${stages[@]}";do
-  read -r -d '%' name func skipper start_message success_message < <(echo -n "${stage}")
+  mapfile -t -d '%' specifications < <(echo -n "${stage}")
+  name="${specifications[0]}"
+  func="${specifications[1]}"
+  skipper="${specifications[2]}"
+  start_message="${specifications[3]}"
+  success_message="${specifications[4]}"
   if [ -z "${!skipper}" ] && [ "$(type -t "${func}" 2>/dev/null)" = 'function' ];then
     log-cyan '==> %s: %s\n' "${name}" "${start_message}"
     "${func}"
