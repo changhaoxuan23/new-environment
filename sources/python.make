@@ -1,39 +1,34 @@
-#!/bin/bash
+# shellcheck shell=bash
+# this file is not meant to be executed directly but sourced by other scripts, therefore we will not
+#  include a shebang for this file
 
 package="python"
-scripts_directory="$(dirname "$0")"
+cleanup+=(clean-package-directory clean-build-directory)
 
-cleanup(){
-  stable-remove-directory "${stow_directory}/${package}.new"
-  stable-remove-directory "${stow_directory}/${package}.build"
+nenv_make_source() {
+  # fetch url of latest stable
+  source_url="$(curl --fail --location --compressed --silent 'https://www.python.org/box/supernav-python-downloads/' | grep -Po 'https://.+?.tar.xz')"
+
+  # get version code
+  new_version="$(echo -n "${source_url}" | sed -E 's|.+Python-(.+).tar.xz|\1|')"
+
+  # version check
+  if ! check-semantic-version;then return 77;fi
+
+  # get source
+  cd "${stow_directory}"
+  wget --no-netrc --https-only "${source_url}"
+  tar xvf "Python-${new_version}.tar.xz"
+  mv "Python-${new_version}" "${source_directory}"
 }
 
-source "${scripts_directory}/common/prepare-execution-environment"
+nenv_make_build() {
+  cd "${source_directory}"
 
-# fetch url of latest stable
-source_url="$(curl --fail --location --compressed --silent 'https://www.python.org/box/supernav-python-downloads/' | grep -Po 'https://.+?.tar.xz')"
-
-# get version code
-new_version="$(echo -n "${source_url}" | sed -E 's|.+Python-(.+).tar.xz|\1|')"
-
-# version check
-if ! check-semantic-version;then exit;fi
-
-# get source
-cd "${stow_directory}"
-if [ ! -f "Python-${new_version}.tar.xz" ];then
-  wget --no-netrc --https-only "${source_url}"
-fi
-stable-remove-directory "${stow_directory}/${package}.build"
-tar xvf "Python-${new_version}.tar.xz"
-mv "Python-${new_version}" python.build
-
-# build
-cd python.build
-mkdir build
-cd build
-LDFLAGS="-lncurses ${LDFLAGS}" CFLAGS="${CFLAGS/-O2/-O3} -ffat-lto-objects"
-../configure --prefix="${stow_directory}/${package}" \
+  mkdir build
+  cd build
+  LDFLAGS="-lncurses ${LDFLAGS}" CFLAGS="${CFLAGS/-O2/-O3} -ffat-lto-objects"
+  ../configure --prefix="${package_prefix}" \
              --enable-optimizations \
              --with-lto=full \
              --with-readline \
@@ -41,22 +36,31 @@ LDFLAGS="-lncurses ${LDFLAGS}" CFLAGS="${CFLAGS/-O2/-O3} -ffat-lto-objects"
              --with-computed-gotos \
              --enable-ipv6 \
              --enable-loadable-sqlite-extensions
+  make --jobs --output-sync
+}
 
-make -j
+nenv_make_pack() {
+  cd "${source_directory}"
 
-# install to temporary directory
-make DESTDIR="${stow_directory}/${package}.new" install
+  make DESTDIR="${package_directory}" install
 
-# install to final place
-for python_package_script in "${scripts_directory}/python-"*;do
-  "${python_package_script}" uninstall
-done
-version="${new_version}"
-full-install
+  # make symbolic links: python -> python3 and pip -> pip3
+  ln --symbolic python3 "${package_content_directory}/bin/python"
+  ln --symbolic pip3 "${package_content_directory}/bin/pip"
+}
 
-# reinstall all python packages if not bootstrapping
-if [ -z "${NENV_BOOTSTRAP}" ];then
+nenv_make_install() {
   for python_package_script in "${scripts_directory}/python-"*;do
     "${python_package_script}" uninstall
   done
-fi
+
+  version="${new_version}"
+  full-install
+
+  # reinstall all python packages if not bootstrapping
+  if [ -z "${NENV_BOOTSTRAP}" ];then
+    for python_package_script in "${scripts_directory}/python-"*;do
+      "${python_package_script}" uninstall
+    done
+  fi
+}

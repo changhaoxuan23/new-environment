@@ -140,8 +140,8 @@ for stage in "${stages[@]}";do
   success_message="${specifications[4]}"
   if [ -z "${!skipper}" ] && [ "$(type -t "${func}" 2>/dev/null)" = 'function' ];then
     log-cyan '==> %s: %s\n' "${name}" "${start_message}"
-    "${func}"
-    return_value=$?
+    "${func}" | true
+    return_value=${PIPESTATUS[0]}
     if [ ${return_value} -ne 0 ] && [ ${return_value} -ne 77 ] ;then
       log-red '==> %s returned non-zero value\n' "${func}"
       break

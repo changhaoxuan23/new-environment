@@ -49,8 +49,8 @@ prepend_pathlike MANPATH '__{{export_directory}}__/share/man'
 export MANPATH
 
 # setup C and C++ compiler
-export CC=clang
-export CXX=clang++
+export CC='clang -fcolor-diagnostics'
+export CXX='clang++ -fcolor-diagnostics'
 
 # provide access to header files
 prepend_environment CFLAGS ' ' '-I__{{export_directory}}__/include'
