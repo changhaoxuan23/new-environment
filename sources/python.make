@@ -20,6 +20,7 @@ nenv_make_source() {
   wget --no-netrc --https-only "${source_url}"
   tar xvf "Python-${new_version}.tar.xz"
   mv "Python-${new_version}" "${source_directory}"
+  rm --force "Python-${new_version}.tar.xz"
 }
 
 nenv_make_build() {
@@ -40,7 +41,7 @@ nenv_make_build() {
 }
 
 nenv_make_pack() {
-  cd "${source_directory}"
+  cd "${source_directory}/build"
 
   make DESTDIR="${package_directory}" install
 
